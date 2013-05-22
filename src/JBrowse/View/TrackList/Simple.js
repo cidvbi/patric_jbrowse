@@ -139,7 +139,7 @@ return declare( 'JBrowse.View.TrackList.Simple', null,
             { type: 'text',
               style: {
                   paddingLeft: '18px',
-                  height: '16px',
+                  height: '24px',
                   width: '80%'
               },
               placeholder: 'filter by text',
