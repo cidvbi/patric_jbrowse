@@ -66,7 +66,7 @@ var BAMStore = declare( [ SeqFeatureStore, DeferredStatsMixin, DeferredFeaturesM
                         bamBlob.blob ? bamBlob.blob.name : undefined ) || undefined;
 
         if( ! has( 'typed-arrays' ) ) {
-            this._failAllDeferred( 'Web browser does not support typed arrays');
+            this._failAllDeferred( 'This web browser lacks support for JavaScript typed arrays.' );
             return;
         }
 
@@ -98,7 +98,8 @@ var BAMStore = declare( [ SeqFeatureStore, DeferredStatsMixin, DeferredFeaturesM
      */
     hasRefSeq: function( seqName, callback, errorCallback ) {
         var thisB = this;
-        seqName = thisB.browser.regularizeReferenceName( seqName );
+        //seqName = thisB.browser.regularizeReferenceName( seqName );
+        seqName = "sid|" + this.refSeq.sid + "|accn|" + seqName.toLowerCase();
         this._deferred.stats.then( function() {
             callback( seqName in thisB.bam.chrToIndex );
         }, errorCallback );
@@ -106,7 +107,8 @@ var BAMStore = declare( [ SeqFeatureStore, DeferredStatsMixin, DeferredFeaturesM
 
     // called by getFeatures from the DeferredFeaturesMixin
     _getFeatures: function( query, featCallback, endCallback, errorCallback ) {
-        this.bam.fetch( this.refSeq.name, query.start, query.end, featCallback, endCallback, errorCallback );
+        //this.bam.fetch( this.refSeq.name, query.start, query.end, featCallback, endCallback, errorCallback );
+        this.bam.fetch( "sid|"+this.refSeq.sid+"|accn|"+this.refSeq.name, query.start, query.end, featCallback, endCallback, errorCallback );
     }
 
 });
