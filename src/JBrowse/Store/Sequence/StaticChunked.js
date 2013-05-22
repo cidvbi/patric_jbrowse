@@ -114,6 +114,7 @@ return declare( SeqFeatureStore,
                     this.urlTemplate,
                     {
                         'refseq': query.ref,
+                        'sid': this.refSeq.sid,
                         'refseq_dirpath': function() {
                             var hex = Crc32.crc32( query.ref )
                                 .toString(16)
