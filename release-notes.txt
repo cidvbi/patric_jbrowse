@@ -1,5 +1,28 @@
 {{$NEXT}}
 
+ * Fixed failures of setup.sh legacy BAM support installation caused
+   by samtools taking down their old SourceForge subversion
+   repository.
+
+ * Fixed a bug in which highlighted regions were not always drawn
+   correctly at initial load time.  Thanks to Steffi Geisen for
+   pointing this out.
+
+ * Added support for a `plugins->[]->location` configuration
+   attribute, making it possible for plugins to be loaded from outside
+   the JBrowse plugins directory.
+
+ * Fixed a bug in which Wiggle track value displays behaved a bit
+   oddly with some kinds of mouse movements.  Thanks to Gwendoline
+   Andres for pointing this out.
+
+ * Added a `logMessages` global configuration variable that, if set to
+   true, records messages on the JBrowse message bus in the browser
+   log.
+
+ * Added a workaround for problems with some types of nonstandard Perl
+   installations.  Thanks to Rebecca Boes for pointing this out.
+
 1.9.4     2013-05-22 14:03:32 EST5EDT
 
  * Fixed a bug with configuration handling that preventing disabling

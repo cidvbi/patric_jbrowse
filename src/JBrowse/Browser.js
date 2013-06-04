@@ -128,9 +128,15 @@ var Browser = function(params) {
                 thisB.initPlugins().then( function() {
                     thisB.initTrackMetadata();
                     thisB.loadRefSeqs().then( function() {
+
+                       // figure out our initial location
+                       var initialLocString = thisB._initialLocation();
+                       var initialLoc = Util.parseLocString( initialLocString );
+                       this.refSeq = initialLoc.ref || this.refSeq;
+
                        thisB.initView().then( function() {
                            Touch.loadTouch(); // init touch device support
-                           thisB.navigateTo( thisB._initialLocation() );
+                           thisB.navigateTo( initialLocString );
                            thisB.passMilestone( 'completely initialized', { success: true } );
                        });
                        thisB.reportUsageStats();
@@ -194,9 +200,15 @@ Browser.prototype.initPlugins = function() {
         }
 
         // coerce plugins to array of objects
-        plugins = array.map( dojo.isArray(plugins) ? plugins : [plugins], function( p ) {
+        plugins = array.map( lang.isArray( plugins ) ? plugins : [plugins], function( p ) {
             return typeof p == 'object' ? p : { 'name': p };
         });
+
+        // set default locations for each plugin
+        array.forEach( plugins, function(p) {
+            if( !( 'location' in p ))
+                p.location = 'plugins/'+p.name;
+        },this);
 
         var pluginNames = array.map( plugins, function( p ) {
             return p.name;
@@ -211,8 +223,16 @@ Browser.prototype.initPlugins = function() {
             .then( function() { deferred.resolve({success: true}); });
 
         require( {
-                     packages: array.map( pluginNames, function(c) {
-                                              return { name: c, location: "../plugins/"+c+"/js" };
+                     packages: array.map( plugins, function(p) {
+                                              return {
+                                                  name: p.name,
+                                                  location: function() {
+                                                      var u = this.resolveUrl( p.location+"/js" );
+                                                      if( u.charAt(0) != '/' && ! /^https?:/i.test(u) )
+                                                          u = '../'+u;
+                                                      return u;
+                                                  }.call(this)
+                                              };
                                           }, this )
                  },
                  pluginNames,
@@ -335,7 +355,7 @@ Browser.prototype.onRefSeqsLoaded = function() {};
 
 Browser.prototype.loadUserCSS = function() {
     return this._milestoneFunction( 'loadUserCSS', function( deferred ) {
-        if( this.config.css && ! dojo.isArray( this.config.css ) )
+        if( this.config.css && ! lang.isArray( this.config.css ) )
             this.config.css = [ this.config.css ];
 
         var css = this.config.css || [];
@@ -861,14 +881,27 @@ Browser.prototype._initEventRouting = function() {
     that.subscribe('/jbrowse/v1/v/tracks/new', function( trackConfigs ) {
         that.addTracks( trackConfigs );
         that.publish( '/jbrowse/v1/c/tracks/new', trackConfigs );
+        that.publish( '/jbrowse/v1/n/tracks/new', trackConfigs );
     });
     that.subscribe('/jbrowse/v1/v/tracks/replace', function( trackConfigs ) {
         that.replaceTracks( trackConfigs );
         that.publish( '/jbrowse/v1/c/tracks/replace', trackConfigs );
+        that.publish( '/jbrowse/v1/n/tracks/replace', trackConfigs );
     });
     that.subscribe('/jbrowse/v1/v/tracks/delete', function( trackConfigs ) {
         that.deleteTracks( trackConfigs );
         that.publish( '/jbrowse/v1/c/tracks/delete', trackConfigs );
+        that.publish( '/jbrowse/v1/n/tracks/delete', trackConfigs );
+    });
+
+    that.subscribe('/jbrowse/v1/v/tracks/pin', function( trackNames ) {
+        that.publish( '/jbrowse/v1/c/tracks/pin', trackNames );
+        that.publish( '/jbrowse/v1/n/tracks/pin', trackNames );
+    });
+
+    that.subscribe('/jbrowse/v1/v/tracks/unpin', function( trackNames ) {
+        that.publish( '/jbrowse/v1/c/tracks/unpin', trackNames );
+        that.publish( '/jbrowse/v1/n/tracks/unpin', trackNames );
     });
 };
 
@@ -1073,6 +1106,9 @@ Browser.prototype._calculateClientStats = function() {
 };
 
 Browser.prototype.publish = function() {
+    if( this.config.logMessages )
+        console.log( arguments );
+
     return topic.publish.apply( topic, arguments );
 };
 Browser.prototype.subscribe = function() {
@@ -1319,12 +1355,8 @@ Browser.prototype._coerceBoolean = function(val) {
  */
 Browser.prototype.addRefseqs = function( refSeqs ) {
     var allrefs = this.allRefs = this.allRefs || {};
-    var refCookie = this.cookie('refseq');
     dojo.forEach( refSeqs, function(r) {
         this.allRefs[r.name] = r;
-        if( ! this.refSeq && refCookie && r.name.toLowerCase() == refCookie.toLowerCase() ) {
-            this.refSeq = r;
-        }
     },this);
 
     // generate refSeqOrder
@@ -1957,7 +1989,6 @@ Browser.prototype._updateLocationCookies = function( location ) {
     oldLocMap[this.refSeq.name] = { l: locString, t: Math.round( (new Date()).getTime() / 1000 ) - 1340211510 };
     oldLocMap = this._limitLocMap( oldLocMap, this.config.maxSavedLocations || 10 );
     this.cookie( 'location', dojo.toJson(oldLocMap), {expires: 60});
-    this.cookie( 'refseq', this.refSeq.name );
 };
 
 /**
