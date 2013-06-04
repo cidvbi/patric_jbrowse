@@ -16,7 +16,7 @@ for P in src docs/jsdoc tests tests_extended build; do \
 	done;
 for P in 	src/wig2png \
 			src/dojo/dojo.js \
-			`find src/ -name nls -and -type d -and -not -wholename '*_editor/*' -and -not -wholename '*/tests/*'` \
+			`find src/ -name nls -and -type d -and -not -wholename '*/tests/*'` \
 			src/dojo/resources \
 			src/dojox/grid \
 			src/dojox/gfx/vml.js \
