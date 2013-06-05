@@ -124,8 +124,9 @@ var Browser = function(params) {
                 thisB.setHighlight( new Location( thisB.config.initialHighlight ) );
 
             thisB.loadNames();
-            thisB.loadUserCSS().then( function() {
-                thisB.initPlugins().then( function() {
+            thisB.initPlugins().then( function() {
+                thisB.loadUserCSS().then( function() {
+
                     thisB.initTrackMetadata();
                     thisB.loadRefSeqs().then( function() {
 
@@ -208,11 +209,19 @@ Browser.prototype.initPlugins = function() {
         array.forEach( plugins, function(p) {
             if( !( 'location' in p ))
                 p.location = 'plugins/'+p.name;
-        },this);
 
-        var pluginNames = array.map( plugins, function( p ) {
-            return p.name;
-        });
+            var resolved = this.resolveUrl( p.location );
+
+            // figure out js path
+            if( !( 'js' in p ))
+                p.js = resolved+"/js";
+            if( p.js.charAt(0) != '/' && ! /^https?:/i.test( p.js ) )
+                p.js = '../'+p.js;
+
+            // figure out css path
+            if( !( 'css' in p ))
+                p.css = resolved+"/css";
+        },this);
 
         var pluginDeferreds = array.map( plugins, function(p) {
             return new Deferred();
@@ -226,22 +235,17 @@ Browser.prototype.initPlugins = function() {
                      packages: array.map( plugins, function(p) {
                                               return {
                                                   name: p.name,
-                                                  location: function() {
-                                                      var u = this.resolveUrl( p.location+"/js" );
-                                                      if( u.charAt(0) != '/' && ! /^https?:/i.test(u) )
-                                                          u = '../'+u;
-                                                      return u;
-                                                  }.call(this)
+                                                  location: p.js
                                               };
                                           }, this )
                  },
-                 pluginNames,
+                 array.map( plugins, function(p) { return p.name; } ),
                  dojo.hitch( this, function() {
                      array.forEach( arguments, function( pluginClass, i ) {
-                             var pluginName = pluginNames[i];
+                             var plugin = plugins[i];
                              var thisPluginDone = pluginDeferreds[i];
                              if( typeof pluginClass == 'string' ) {
-                                 console.error("could not load plugin "+pluginName+": "+pluginClass);
+                                 console.error("could not load plugin "+plugin.name+": "+pluginClass);
                              } else {
                                  // make the plugin's arguments out of
                                  // its little obj in 'plugins', and
@@ -249,13 +253,13 @@ Browser.prototype.initPlugins = function() {
                                  // conf under its plugin name
                                  var args = dojo.mixin(
                                      dojo.clone( plugins[i] ),
-                                     { config: this.config[pluginName]||{} });
+                                     { config: this.config[ plugin.name ]||{} });
                                  args.browser = this;
                                  args = dojo.mixin( args, { browser: this } );
 
                                  // load its css
                                  var cssLoaded = this._loadCSS(
-                                     {url: this.resolveUrl( 'plugins/'+pluginName+'/css/main.css' ) }
+                                     {url: this.resolveUrl( plugin.css+'/main.css' ) }
                                  );
                                  cssLoaded.then( function() {
                                      thisPluginDone.resolve({success:true});
@@ -267,8 +271,7 @@ Browser.prototype.initPlugins = function() {
                                  args.cssLoaded = cssLoaded;
 
                                  // instantiate the plugin
-                                 var plugin = new pluginClass( args );
-                                 this.plugins[ pluginName ] = plugin;
+                                 this.plugins[ plugin.name ] = new pluginClass( args );
                              }
                          }, this );
                   }));
@@ -560,7 +563,7 @@ Browser.prototype.initView = function() {
                                   );
 
             function showHelp() {
-                new HelpDialog({ browser: thisObj }).show();
+                new HelpDialog( lang.mixin(thisObj.config.quickHelp || {}, { browser: thisObj } )).show();
             }
             this.setGlobalKeyboardShortcut( '?', showHelp );
             this.addGlobalMenuItem( 'help',
