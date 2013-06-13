@@ -17,6 +17,7 @@ define( [
             'dijit/MenuItem',
             'dijit/CheckedMenuItem',
             'dijit/MenuSeparator',
+			'dijit/Tooltip',
             'JBrowse/Util',
             'JBrowse/Component',
             'JBrowse/Errors',
@@ -43,6 +44,7 @@ define( [
                   dijitMenuItem,
                   dijitCheckedMenuItem,
                   dijitMenuSeparator,
+				  dijitTooltip,
                   Util,
                   Component,
                   Errors,
@@ -716,6 +718,24 @@ return declare( [Component,DetailsMixin,Destroyable],
             }
         }
         return parent;
+    },
+
+    _makeMouseOverHandler: function( inputSpec, context ) {
+        var track  = this;
+        var handler = function ( evt ) {
+
+            var ctx = context || this;
+            var spec = track._processMenuSpec( dojo.clone( inputSpec ), ctx );
+
+			new dijitTooltip({
+				connectId: [ ctx ],
+				position: ["below","above"],
+				label: spec.msg,
+				showDelay: 0
+			});
+        };
+
+        return handler;
     },
 
     _makeClickHandler: function( inputSpec, context ) {
