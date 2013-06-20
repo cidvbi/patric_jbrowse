@@ -1,8 +1,10 @@
 var _gaq = _gaq || []; // global task queue for Google Analytics
 
 define( [
+            'dojo/_base/declare',
             'dojo/_base/lang',
             'dojo/on',
+            'dojo/keys',
             'dojo/Deferred',
             'dojo/DeferredList',
             'dojo/topic',
@@ -18,12 +20,12 @@ define( [
             'dijit/form/DropDownButton',
             'dijit/DropDownMenu',
             'dijit/MenuItem',
-            'dijit/CheckedMenuItem',
             'JBrowse/Util',
             'JBrowse/Store/LazyTrie',
             'JBrowse/Store/Names/LazyTrieDojoData',
             'dojo/store/DataStore',
             'JBrowse/Store/Names/Hash',
+            'JBrowse/FeatureFiltererMixin',
             'JBrowse/GenomeView',
             'JBrowse/TouchScreenSupport',
             'JBrowse/ConfigManager',
@@ -38,8 +40,10 @@ define( [
             'dojo/domReady!'
         ],
         function(
+            declare,
             lang,
             on,
+            keys,
             Deferred,
             DeferredList,
             topic,
@@ -55,12 +59,12 @@ define( [
             dijitDropDownButton,
             dijitDropDownMenu,
             dijitMenuItem,
-            dijitCheckedMenuItem,
             Util,
             LazyTrie,
             NamesLazyTrieDojoDataStore,
             DojoDataStore,
             NamesHashStore,
+            FeatureFiltererMixin,
             GenomeView,
             Touch,
             ConfigManager,
@@ -97,7 +101,9 @@ var dojof = Util.dojof;
  * </ul>
  */
 
-var Browser = function(params) {
+return declare( FeatureFiltererMixin, {
+
+constructor: function(params) {
     this.globalKeyboardShortcuts = {};
 
     this.config = params;
@@ -146,9 +152,9 @@ var Browser = function(params) {
             });
         });
     });
-};
+},
 
-Browser.prototype._initialLocation = function() {
+_initialLocation: function() {
     var oldLocMap = dojo.fromJson( this.cookie('location') ) || {};
     if( this.config.location ) {
         return this.config.location;
@@ -163,14 +169,14 @@ Browser.prototype._initialLocation = function() {
                                           end:   0.6 * ( this.refSeq.start + this.refSeq.end )
                                       });
     }
-};
+},
 
-Browser.prototype.version = function() {
+version: function() {
     // when a build is put together, the build system assigns a string
     // to the variable below.
     var BUILD_SYSTEM_JBROWSE_VERSION;
     return BUILD_SYSTEM_JBROWSE_VERSION || 'development';
-}.call();
+}.call(),
 
 
 /**
@@ -181,16 +187,16 @@ Browser.prototype.version = function() {
  * Callback is called with one parameter, the desired plugin object,
  * or undefined if it does not exist.
  */
-Browser.prototype.getPlugin = function( name, callback ) {
+getPlugin: function( name, callback ) {
     this.afterMilestone( 'initPlugins', dojo.hitch( this, function() {
         callback( this.plugins[name] );
     }));
-};
+},
 
 /**
  * Load and instantiate any plugins defined in the configuration.
  */
-Browser.prototype.initPlugins = function() {
+initPlugins: function() {
     return this._milestoneFunction( 'initPlugins', function( deferred ) {
         this.plugins = {};
         var plugins = this.config.plugins || [];
@@ -276,26 +282,25 @@ Browser.prototype.initPlugins = function() {
                          }, this );
                   }));
     });
-
-};
+},
 
 /**
  * Resolve a URL relative to the browserRoot.
  */
-Browser.prototype.resolveUrl = function( url ) {
+resolveUrl: function( url ) {
     var browserRoot = this.config.browserRoot || "";
     if( browserRoot && browserRoot.charAt( browserRoot.length - 1 ) != '/' )
         browserRoot += '/';
 
     return Util.resolveUrl( browserRoot, url );
-};
+},
 
 /**
  * Displays links to configuration help in the main window.  Called
  * when the main browser cannot run at all, due to configuration
  * errors or whatever.
  */
-Browser.prototype.fatalError = function( error ) {
+fatalError: function( error ) {
     if( error ) {
         error = error+'';
         if( ! /\.$/.exec(error) )
@@ -328,9 +333,9 @@ Browser.prototype.fatalError = function( error ) {
         var errors_div = dojo.byId('fatal_error_list') || document.body;
         dojo.create('div', { className: 'error', innerHTML: error+'' }, errors_div );
     }
-};
+},
 
-Browser.prototype.loadRefSeqs = function() {
+loadRefSeqs: function() {
     return this._milestoneFunction( 'loadRefSeqs', function( deferred ) {
         // load our ref seqs
         if( typeof this.config.refSeqs == 'string' )
@@ -349,14 +354,15 @@ Browser.prototype.loadRefSeqs = function() {
                 })
             });
     });
-};
+},
 
 /**
  * Event that fires when the reference sequences have been loaded.
  */
-Browser.prototype.onRefSeqsLoaded = function() {};
+onRefSeqsLoaded: function() {
+},
 
-Browser.prototype.loadUserCSS = function() {
+loadUserCSS: function() {
     return this._milestoneFunction( 'loadUserCSS', function( deferred ) {
         if( this.config.css && ! lang.isArray( this.config.css ) )
             this.config.css = [ this.config.css ];
@@ -375,9 +381,9 @@ Browser.prototype.loadUserCSS = function() {
         new DeferredList(cssDeferreds)
             .then( function() { deferred.resolve({success:true}); } );
    });
-};
+},
 
-Browser.prototype._loadCSS = function( css ) {
+_loadCSS: function( css ) {
     var deferred = new Deferred();
     if( typeof css == 'string' ) {
         // if it has '{' in it, it probably is not a URL, but is a string of CSS statements
@@ -394,12 +400,12 @@ Browser.prototype._loadCSS = function( css ) {
         LazyLoad.css( css.url, function() { deferred.resolve(true); } );
     }
     return deferred;
-};
+},
 
 /**
  * Load our name index.
  */
-Browser.prototype.loadNames = function() {
+loadNames: function() {
     return this._milestoneFunction( 'loadNames', function( deferred ) {
         var conf = dojo.mixin( dojo.clone( this.config.names || {} ),
                                this.config.autocomplete || {} );
@@ -426,7 +432,7 @@ Browser.prototype.loadNames = function() {
 
         deferred.resolve({success: true});
     });
-};
+},
 
 /**
  * Compare two reference sequence names, returning -1, 0, or 1
@@ -434,11 +440,11 @@ Browser.prototype.loadNames = function() {
  * presence or absence of prefixes like 'chr', 'chrom', 'ctg',
  * 'contig', 'scaffold', etc
  */
-Browser.prototype.compareReferenceNames = function( a, b ) {
+compareReferenceNames: function( a, b ) {
     return this.regularizeReferenceName(a).localeCompare( this.regularizeReferenceName( b ) );
-};
+},
 
-Browser.prototype.regularizeReferenceName = function( refname ) {
+regularizeReferenceName: function( refname ) {
 
     if( this.config.exactReferenceSequenceNames )
         return refname;
@@ -451,9 +457,9 @@ Browser.prototype.regularizeReferenceName = function( refname ) {
                      .replace(/^(\d+)$/, 'chr$1' );
 
     return refname;
-};
+},
 
-Browser.prototype.initView = function() {
+initView: function() {
     var thisObj = this;
     return this._milestoneFunction('initView', function( deferred ) {
 
@@ -599,7 +605,14 @@ Browser.prototype.initView = function() {
 
         // hook up GenomeView
         this.view = this.viewElem.view =
-            new GenomeView(this, this.viewElem, 250, this.refSeq, 1/200 );
+            new GenomeView(
+                { browser: this,
+                  elem: this.viewElem,
+                  config: this.config.view,
+                  stripeWidth: 250,
+                  refSeq: this.refSeq,
+                  zoomLevel: 1/200
+                });
 
         dojo.connect( this.view, "onFineMove",   this, "onFineMove"   );
         dojo.connect( this.view, "onCoarseMove", this, "onCoarseMove" );
@@ -641,10 +654,9 @@ Browser.prototype.initView = function() {
             }));
         }));
     });
-};
+},
 
-
-Browser.prototype.renderDatasetSelect = function( parent ) {
+renderDatasetSelect: function( parent ) {
     var dsconfig = this.config.datasets || {};
     var datasetChoices = [];
     for( var id in dsconfig ) {
@@ -668,13 +680,13 @@ Browser.prototype.renderDatasetSelect = function( parent ) {
                                      return false;
                                  })
         }).placeAt( parent );
-};
+},
 
 /**
  * Get object like { title: "title", description: "description", ... }
  * that contains metadata describing this browser.
  */
-Browser.prototype.browserMeta = function() {
+browserMeta: function() {
     var about = this.config.aboutThisBrowser || {};
     about.title = about.title || 'JBrowse';
 
@@ -697,7 +709,7 @@ Browser.prototype.browserMeta = function() {
             + '</div>';
     }
     return about;
-};
+},
 
 /**
  * Track type registry, used by GUI elements that need to offer
@@ -705,7 +717,7 @@ Browser.prototype.browserMeta = function() {
  * type, and get the data structure describing what track types are
  * known.
  */
-Browser.prototype.registerTrackType = function( args ) {
+registerTrackType: function( args ) {
 
     var types = this.getTrackTypes();
     var typeName   = args.type;
@@ -734,8 +746,8 @@ Browser.prototype.registerTrackType = function( args ) {
 
     // store the whole structure in this object
     this._knownTrackTypes = types;
-};
-Browser.prototype.getTrackTypes = function() {
+},
+getTrackTypes: function() {
     // create the default types if necessary
     if( ! this._knownTrackTypes )
         this._knownTrackTypes = {
@@ -765,11 +777,11 @@ Browser.prototype.getTrackTypes = function() {
         };
 
     return this._knownTrackTypes;
-};
+},
 
 
 
-Browser.prototype.openFileDialog = function() {
+openFileDialog: function() {
     new FileDialog({ browser: this })
         .show({
             openCallback: dojo.hitch( this, function( results ) {
@@ -797,22 +809,22 @@ Browser.prototype.openFileDialog = function() {
                 }
             })
         });
-};
+},
 
-Browser.prototype.addTracks = function( confs ) {
+addTracks: function( confs ) {
     // just register the track configurations right now
     this._addTrackConfigs( confs );
-};
-Browser.prototype.replaceTracks = function( confs ) {
+},
+replaceTracks: function( confs ) {
     // just add-or-replace the track configurations
     this._replaceTrackConfigs( confs );
-};
-Browser.prototype.deleteTracks = function( confs ) {
+},
+deleteTracks: function( confs ) {
     // de-register the track configurations
     this._deleteTrackConfigs( confs );
-};
+},
 
-Browser.prototype.renderGlobalMenu = function( menuName, args, parent ) {
+renderGlobalMenu: function( menuName, args, parent ) {
     var menu = this.makeGlobalMenu( menuName );
     if( menu ) {
         args = dojo.mixin(
@@ -828,9 +840,9 @@ Browser.prototype.renderGlobalMenu = function( menuName, args, parent ) {
         dojo.addClass( menuButton.domNode, 'menu' );
         parent.appendChild( menuButton.domNode );
     }
-};
+},
 
-Browser.prototype.makeGlobalMenu = function( menuName ) {
+makeGlobalMenu: function( menuName ) {
     var items = ( this._globalMenuItems || {} )[menuName] || [];
     if( ! items.length )
         return null;
@@ -842,15 +854,15 @@ Browser.prototype.makeGlobalMenu = function( menuName ) {
     dojo.addClass( menu.domNode, 'globalMenu' );
     menu.startup();
     return menu;
-};
+},
 
-Browser.prototype.addGlobalMenuItem = function( menuName, item ) {
+addGlobalMenuItem: function( menuName, item ) {
     if( ! this._globalMenuItems )
         this._globalMenuItems = {};
     if( ! this._globalMenuItems[ menuName ] )
         this._globalMenuItems[ menuName ] = [];
     this._globalMenuItems[ menuName ].push( item );
-};
+},
 
 /**
  * Initialize our message routing, subscribing to messages, forwarding
@@ -871,7 +883,7 @@ Browser.prototype.addGlobalMenuItem = function( menuName, item ) {
  *
  * @private
  */
-Browser.prototype._initEventRouting = function() {
+_initEventRouting: function() {
     var that = this;
 
     that.subscribe('/jbrowse/v1/v/tracks/hide', function( trackConfigs ) {
@@ -907,7 +919,7 @@ Browser.prototype._initEventRouting = function() {
         that.publish( '/jbrowse/v1/c/tracks/unpin', trackNames );
         that.publish( '/jbrowse/v1/n/tracks/unpin', trackNames );
     });
-};
+},
 
 /**
  * Reports some anonymous usage statistics about this browsing
@@ -915,17 +927,17 @@ Browser.prototype._initEventRouting = function() {
  * and their type (feature, wiggle, etc), and the number of reference
  * sequences and their average length.
  */
-Browser.prototype.reportUsageStats = function() {
+reportUsageStats: function() {
     if( this.config.suppressUsageStatistics )
         return;
 
     var stats = this._calculateClientStats();
     this._reportGoogleUsageStats( stats );
     this._reportCustomUsageStats( stats );
-};
+},
 
 // phones home to google analytics
-Browser.prototype._reportGoogleUsageStats = function( stats ) {
+_reportGoogleUsageStats: function( stats ) {
     _gaq.push.apply( _gaq, [
         ['_setAccount', 'UA-7115575-2'],
         ['_setDomainName', 'none'],
@@ -945,10 +957,10 @@ Browser.prototype._reportGoogleUsageStats = function( stats ) {
              + '.google-analytics.com/ga.js';
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(ga, s);
-};
+},
 
 // phones home to custom analytics at jbrowse.org
-Browser.prototype._reportCustomUsageStats = function(stats) {
+_reportCustomUsageStats: function(stats) {
     // phone home with a GET request made by a script tag
     dojo.create(
         'img',
@@ -960,14 +972,14 @@ Browser.prototype._reportCustomUsageStats = function(stats) {
         },
         document.body
     );
-};
+},
 
 
 /**
  * Get a store object from the store registry, loading its code and
  * instantiating it if necessary.
  */
-Browser.prototype.getStore = function( storeName, callback ) {
+getStore: function( storeName, callback ) {
     if( !callback ) throw 'invalid arguments';
 
     var storeCache = this._storeCache || {};
@@ -1011,16 +1023,16 @@ Browser.prototype.getStore = function( storeName, callback ) {
                  // doesn't release this function
                  callback = undefined;
              }));
-};
+},
 
 /**
  * Add a store configuration to the browser.  If name is falsy, will
  * autogenerate one.
  * @private
  */
-var uniqCounter = 0;
-Browser.prototype._addStoreConfig = function( /**String*/ name, /**Object*/ storeConfig ) {
-    name = name || 'addStore'+uniqCounter++;
+uniqCounter: 0,
+_addStoreConfig: function( /**String*/ name, /**Object*/ storeConfig ) {
+    name = name || 'addStore'+this.uniqCounter++;
 
     if( ! this.config.stores )
         this.config.stores = {};
@@ -1033,11 +1045,11 @@ Browser.prototype._addStoreConfig = function( /**String*/ name, /**Object*/ stor
 
     this.config.stores[name] = storeConfig;
     return name;
-};
+},
 
-Browser.prototype.clearStores = function() {
+clearStores: function() {
     this._storeCache = {};
-};
+},
 
 /**
  * Notifies the browser that the given named store is no longer being
@@ -1046,13 +1058,13 @@ Browser.prototype.clearStores = function() {
  * object will be discarded, to be recreated again later if needed.
  */
 // not actually being used yet
-Browser.prototype.releaseStore = function( storeName ) {
+releaseStore: function( storeName ) {
     var storeRecord = this._storeCache[storeName];
     if( storeRecord && ! --storeRecord.refCount )
         delete this._storeCache[storeName];
-};
+},
 
-Browser.prototype._calculateClientStats = function() {
+_calculateClientStats: function() {
 
     var scn = screen || window.screen;
 
@@ -1107,37 +1119,37 @@ Browser.prototype._calculateClientStats = function() {
     });
 
     return stats;
-};
+},
 
-Browser.prototype.publish = function() {
+publish: function() {
     if( this.config.logMessages )
         console.log( arguments );
 
     return topic.publish.apply( topic, arguments );
-};
-Browser.prototype.subscribe = function() {
+},
+subscribe: function() {
     return topic.subscribe.apply( topic, arguments );
-};
+},
 
-Browser.prototype.onResize = function() {
+onResize: function() {
     if( this.navbox )
         this.view.locationTrapHeight = dojo.marginBox( this.navbox ).h;
-};
+},
 
 /**
  * Get the list of the most recently used tracks, stored for this user
  * in a cookie.
  * @returns {Array[Object]} as <code>[{ time: (integer), label: (track label)}]</code>
  */
-Browser.prototype.getRecentlyUsedTracks = function() {
+getRecentlyUsedTracks: function() {
     return dojo.fromJson( this.cookie( 'recentTracks' ) || '[]' );
-};
+},
 
 /**
  * Add the given list of tracks as being recently used.
  * @param trackLabels {Array[String]} array of track labels to add
  */
-Browser.prototype.addRecentlyUsedTracks = function( trackLabels ) {
+addRecentlyUsedTracks: function( trackLabels ) {
     var seen = {};
     var newRecent =
         Util.uniq(
@@ -1159,14 +1171,14 @@ Browser.prototype.addRecentlyUsedTracks = function( trackLabels ) {
     this.cookie( 'recentTracks', newRecent, { expires: 365 } );
 
     return newRecent;
-};
+},
 
 /**
  * Run a function that will eventually resolve the named Deferred
  * (milestone).
  * @param {String} name the name of the Deferred
  */
-Browser.prototype._milestoneFunction = function( /**String*/ name, func ) {
+_milestoneFunction: function( /**String*/ name, func ) {
 
     var thisB = this;
     var args = Array.prototype.slice.call( arguments, 2 );
@@ -1181,20 +1193,20 @@ Browser.prototype._milestoneFunction = function( /**String*/ name, func ) {
     }
 
     return d;
-};
+},
 
 /**
  * Fetch or create a named Deferred, which is how milestones are implemented.
  */
-Browser.prototype._getDeferred = function( name ) {
+_getDeferred: function( name ) {
     if( ! this._deferred )
         this._deferred = {};
     return this._deferred[name] = this._deferred[name] || new Deferred();
-};
+},
 /**
  * Attach a callback to a milestone.
  */
-Browser.prototype.afterMilestone = function( name, func ) {
+afterMilestone: function( name, func ) {
     return this._getDeferred(name)
         .then( function() {
                    try {
@@ -1203,21 +1215,21 @@ Browser.prototype.afterMilestone = function( name, func ) {
                        console.error( ''+e, e.stack, e );
                    }
                });
-};
+},
 /**
  * Indicate that we've reached a milestone in the initalization
  * process.  Will run all the callbacks associated with that
  * milestone.
  */
-Browser.prototype.passMilestone = function( name, result ) {
+passMilestone: function( name, result ) {
     return this._getDeferred(name).resolve( result );
-};
+},
 /**
  * Return true if we have reached the named milestone, false otherwise.
  */
-Browser.prototype.reachedMilestone = function( name ) {
+reachedMilestone: function( name ) {
     return this._getDeferred(name).fired >= 0;
-};
+},
 
 
 /**
@@ -1226,7 +1238,7 @@ Browser.prototype.reachedMilestone = function( name ) {
  *  loaded and merged in.
  *  @returns nothing meaningful
  */
-Browser.prototype.loadConfig = function () {
+loadConfig: function () {
     return this._milestoneFunction( 'loadConfig', function( deferred ) {
         var c = new ConfigManager({ config: this.config, defaults: this._configDefaults(), browser: this });
         c.getFinalConfig( dojo.hitch(this, function( finishedConfig ) {
@@ -1250,13 +1262,13 @@ Browser.prototype.loadConfig = function () {
                 deferred.resolve({success:true});
         }));
     });
-};
+},
 
 /**
  * Add new track configurations.
  * @private
  */
-Browser.prototype._addTrackConfigs = function( /**Array*/ configs ) {
+_addTrackConfigs: function( /**Array*/ configs ) {
 
     if( ! this.config.tracks )
         this.config.tracks = [];
@@ -1276,12 +1288,12 @@ Browser.prototype._addTrackConfigs = function( /**Array*/ configs ) {
     },this);
 
     return configs;
-};
+},
 /**
  * Replace existing track configurations.
  * @private
  */
-Browser.prototype._replaceTrackConfigs = function( /**Array*/ newConfigs ) {
+_replaceTrackConfigs: function( /**Array*/ newConfigs ) {
     if( ! this.trackConfigsByName )
         this.trackConfigsByName = {};
 
@@ -1293,12 +1305,12 @@ Browser.prototype._replaceTrackConfigs = function( /**Array*/ newConfigs ) {
         this.trackConfigsByName[conf.label] =
                            dojo.mixin( this.trackConfigsByName[ conf.label ] || {}, conf );
    },this);
-};
+},
 /**
  * Delete existing track configs.
  * @private
  */
-Browser.prototype._deleteTrackConfigs = function( configsToDelete ) {
+_deleteTrackConfigs: function( configsToDelete ) {
     // remove from this.config.tracks
     this.config.tracks = array.filter( this.config.tracks || [], function( conf ) {
         return ! array.some( configsToDelete, function( toDelete ) {
@@ -1315,16 +1327,16 @@ Browser.prototype._deleteTrackConfigs = function( configsToDelete ) {
 
         delete this.trackConfigsByName[ toDelete.label ];
     },this);
-};
+},
 
-Browser.prototype._configDefaults = function() {
+_configDefaults: function() {
     return {
         tracks: [],
         show_tracklist: true,
         show_nav: true,
         show_overview: true
     };
-};
+},
 
 /**
  * Coerce a value of unknown type to a boolean, treating string 'true'
@@ -1332,7 +1344,7 @@ Browser.prototype._configDefaults = function() {
  * numbers.
  * @private
  */
-Browser.prototype._coerceBoolean = function(val) {
+_coerceBoolean: function(val) {
     if( typeof val == 'string' ) {
         val = val.toLowerCase();
         if( val == 'true' ) {
@@ -1352,12 +1364,12 @@ Browser.prototype._coerceBoolean = function(val) {
     else {
         return true;
     }
-};
+},
 
 /**
  * @param refSeqs {Array} array of refseq records to add to the browser
  */
-Browser.prototype.addRefseqs = function( refSeqs ) {
+addRefseqs: function( refSeqs ) {
     var allrefs = this.allRefs = this.allRefs || {};
     dojo.forEach( refSeqs, function(r) {
         this.allRefs[r.name] = r;
@@ -1385,26 +1397,24 @@ Browser.prototype.addRefseqs = function( refSeqs ) {
         }.call(this);
 
     this.refSeq = this.refSeq || this.allRefs[ this.refSeqOrder[0] ];
-};
+},
 
 
-Browser.prototype.getCurrentRefSeq = function( name, callback ) {
+getCurrentRefSeq: function( name, callback ) {
     return this.refSeq || {};
-};
+},
 
-Browser.prototype.getRefSeq = function( name, callback ) {
+getRefSeq: function( name, callback ) {
     if( typeof name != 'string' )
         name = this.refSeqOrder[0];
 
     callback( this.allRefs[ name ] );
-};
+},
 
 /**
  * @private
  */
-
-
-Browser.prototype.onFineMove = function(startbp, endbp) {
+onFineMove: function(startbp, endbp) {
 
     if( this.locationTrap ) {
         var length = this.view.ref.end - this.view.ref.start;
@@ -1419,12 +1429,12 @@ Browser.prototype.onFineMove = function(startbp, endbp) {
                         borderRightWidth: (this.view.overviewBox.w - trapRight) + "px"
         });
     }
-};
+},
 
 /**
  * Asynchronously initialize our track metadata.
  */
-Browser.prototype.initTrackMetadata = function( callback ) {
+initTrackMetadata: function( callback ) {
     return this._milestoneFunction( 'initTrackMetadata', function( deferred ) {
         var metaDataSourceClasses = dojo.map(
                                     (this.config.trackMetadata||{}).sources || [],
@@ -1465,13 +1475,13 @@ Browser.prototype.initTrackMetadata = function( callback ) {
                      deferred.resolve({success:true});
         }));
     });
-};
+},
 
 /**
  * Asynchronously create the track list.
  * @private
  */
-Browser.prototype.createTrackList = function() {
+createTrackList: function() {
     return this._milestoneFunction('createTrack', function( deferred ) {
         // find the tracklist class to use
         var tl_class = !this.config.show_tracklist           ? 'Null'                         :
@@ -1520,14 +1530,14 @@ Browser.prototype.createTrackList = function() {
                      deferred.resolve({ success: true });
         }));
     });
-};
+},
 
 /**
  * @private
  */
 
-Browser.prototype.onVisibleTracksChanged = function() {
-};
+onVisibleTracksChanged: function() {
+},
 
 
 /**
@@ -1535,7 +1545,7 @@ Browser.prototype.onVisibleTracksChanged = function() {
  * location with a little bit of flanking sequence to each side, if
  * possible.
  */
-Browser.prototype.showRegion = function( location ) {
+showRegion: function( location ) {
     var flank   = Math.round( ( location.end - location.start ) * 0.2 );
     //go to location, with some flanking region
     this.navigateToLocation({ ref: location.ref,
@@ -1547,7 +1557,7 @@ Browser.prototype.showRegion = function( location ) {
     if( location.tracks ) {
         this.showTracks( array.map( location.tracks, function( t ) { return t && (t.label || t.name) || t; } ));
     }
-};
+},
 
 /**
  * navigate to a given location
@@ -1562,7 +1572,7 @@ Browser.prototype.showRegion = function( location ) {
  * &lt;feature name/ID&gt;
  */
 
-Browser.prototype.navigateTo = function(loc) {
+navigateTo: function(loc) {
     this.afterMilestone( 'completely initialized', dojo.hitch( this, function() {
         // if it's a foo:123..456 location, go there
         var location = typeof loc == 'string' ? Util.parseLocString( loc ) :  loc;
@@ -1606,13 +1616,13 @@ Browser.prototype.navigateTo = function(loc) {
             this.searchNames( loc );
         }
     }));
-};
+},
 
 // given an object like { ref: 'foo', start: 2, end: 100 }, set the
 // browser's view to that location.  any of ref, start, or end may be
 // missing, in which case the function will try set the view to
 // something that seems intelligent
-Browser.prototype.navigateToLocation = function( location ) {
+navigateToLocation: function( location ) {
 
     // validate the ref seq we were passed
     var ref = location.ref ? Util.matchRefSeqName( location.ref, this.allRefs )
@@ -1654,13 +1664,13 @@ Browser.prototype.navigateToLocation = function( location ) {
     }
 
     return;
-};
+},
 
 /**
  * Given a string name, search for matching feature names and set the
  * view location to any that match.
  */
-Browser.prototype.searchNames = function( /**String*/ loc ) {
+searchNames: function( /**String*/ loc ) {
     var thisB = this;
     this.nameStore.query({ name: loc })
         .then(
@@ -1722,7 +1732,7 @@ Browser.prototype.searchNames = function( /**String*/ loc ) {
                 return;
             }
    );
-};
+},
 
 
 /**
@@ -1735,7 +1745,7 @@ Browser.prototype.searchNames = function( /**String*/ loc ) {
  * element of the track information
  */
 
-Browser.prototype.showTracks = function( trackNames ) {
+showTracks: function( trackNames ) {
     this.afterMilestone('completely initialized', dojo.hitch( this, function() {
         if( typeof trackNames == 'string' )
             trackNames = trackNames.split(',');
@@ -1754,14 +1764,14 @@ Browser.prototype.showTracks = function( trackNames ) {
         this.publish( '/jbrowse/v1/c/tracks/show', trackConfs );
         this.publish( '/jbrowse/v1/n/tracks/visibleChanged' );
     }));
-};
+},
 
 /**
  * Create a global keyboard shortcut.
  * @param keychar the character of the key that is typed
  * @param [...] additional arguments passed to dojo.hitch for making the handler
  */
-Browser.prototype.setGlobalKeyboardShortcut = function( keychar ) {
+setGlobalKeyboardShortcut: function( keychar ) {
     // warn if redefining
     if( this.globalKeyboardShortcuts[ keychar ] )
         console.warn("WARNING: JBrowse global keyboard shortcut '"+keychar+"' redefined");
@@ -1771,12 +1781,12 @@ Browser.prototype.setGlobalKeyboardShortcut = function( keychar ) {
 
     // remember it
     this.globalKeyboardShortcuts[ keychar ] = func;
-};
+},
 
 /**
  * Key event handler that implements all global keyboard shortcuts.
  */
-Browser.prototype.globalKeyHandler = function( evt ) {
+globalKeyHandler: function( evt ) {
     // if some digit widget is focused, don't process any global keyboard shortcuts
     if( dijitFocus.curNode )
         return;
@@ -1786,9 +1796,9 @@ Browser.prototype.globalKeyHandler = function( evt ) {
         shortcut.call( this );
         evt.stopPropagation();
     }
-};
+},
 
-Browser.prototype.makeShareLink = function () {
+makeShareLink: function () {
     // don't make the link if we were explicitly configured not to
     if( ( 'share_link' in this.config ) && !this.config.share_link )
         return null;
@@ -1868,7 +1878,7 @@ Browser.prototype.makeShareLink = function () {
     this.subscribe( '/jbrowse/v1/n/globalHighlightChanged', updateShareURL );
 
     return button.domNode;
-};
+},
 
 /**
  * Return a string URL that encodes the complete viewing state of the
@@ -1877,7 +1887,7 @@ Browser.prototype.makeShareLink = function () {
  * @param {Object} overrides optional key-value object containing
  *                           components of the query string to override
  */
-Browser.prototype.makeCurrentViewURL = function( overrides ) {
+makeCurrentViewURL: function( overrides ) {
     var t = typeof this.config.shareURL;
 
     if( t == 'function' ) {
@@ -1907,9 +1917,9 @@ Browser.prototype.makeCurrentViewURL = function( overrides ) {
             )
         )
     );
-}
+},
 
-Browser.prototype.makeFullViewLink = function () {
+makeFullViewLink: function () {
     var thisB = this;
     // make the link
     var link = dojo.create('a', {
@@ -1931,13 +1941,13 @@ Browser.prototype.makeFullViewLink = function () {
     this.subscribe( '/jbrowse/v1/n/globalHighlightChanged', update_link );
 
     return link;
-};
+},
 
 /**
  * @private
  */
 
-Browser.prototype.onCoarseMove = function(startbp, endbp) {
+onCoarseMove: function(startbp, endbp) {
 
     var currRegion = { start: startbp, end: endbp, ref: this.refSeq.name };
 
@@ -1960,9 +1970,9 @@ Browser.prototype.onCoarseMove = function(startbp, endbp) {
 
     // send out a message notifying of the move
     this.publish( '/jbrowse/v1/n/navigate', currRegion );
-};
+},
 
-Browser.prototype._updateRefSeqSelectBox = function() {
+_updateRefSeqSelectBox: function() {
     if( this.refSeqSelectBox ) {
 
         // if none of the options in the select box match this
@@ -1980,12 +1990,12 @@ Browser.prototype._updateRefSeqSelectBox = function() {
         // set its value to the current ref seq
         this.refSeqSelectBox.set( 'value', this.refSeq.name, false );
     }
-};
+},
 
 /**
  * update the location and refseq cookies
  */
-Browser.prototype._updateLocationCookies = function( location ) {
+_updateLocationCookies: function( location ) {
     var locString = typeof location == 'string' ? location : Util.assembleLocString( location );
     var oldLocMap = dojo.fromJson( this.cookie('location') ) || { "_version": 1 };
     if( ! oldLocMap["_version"] )
@@ -1993,25 +2003,25 @@ Browser.prototype._updateLocationCookies = function( location ) {
     oldLocMap[this.refSeq.name] = { l: locString, t: Math.round( (new Date()).getTime() / 1000 ) - 1340211510 };
     oldLocMap = this._limitLocMap( oldLocMap, this.config.maxSavedLocations || 10 );
     this.cookie( 'location', dojo.toJson(oldLocMap), {expires: 60});
-};
+},
 
 /**
  * Migrate an old location map cookie to the new format that includes timestamps.
  * @private
  */
-Browser.prototype._migrateLocMap = function( locMap ) {
+_migrateLocMap: function( locMap ) {
     var newLoc = { "_version": 1 };
     for( var loc in locMap ) {
         newLoc[loc] = { l: locMap[loc], t: 0 };
     }
     return newLoc;
-};
+},
 
 /**
  * Limit the size of the saved location map, removing the least recently used.
  * @private
  */
-Browser.prototype._limitLocMap = function( locMap, maxEntries ) {
+_limitLocMap: function( locMap, maxEntries ) {
     // don't do anything if the loc map has fewer than the max
     var locRefs = dojof.keys( locMap );
     if( locRefs.length <= maxEntries )
@@ -2033,7 +2043,7 @@ Browser.prototype._limitLocMap = function( locMap, maxEntries ) {
     });
 
     return locMap;
-};
+},
 
 /**
  * Wrapper for dojo.cookie that namespaces our cookie names by
@@ -2046,7 +2056,7 @@ Browser.prototype._limitLocMap = function( locMap, maxEntries ) {
  * @param [...] same as dojo.cookie
  * @returns the new value of the cookie, same as dojo.cookie
  */
-Browser.prototype.cookie = function() {
+cookie: function() {
     arguments[0] = this.config.containerID + '-' + arguments[0];
     if( typeof arguments[1] == 'object' )
         arguments[1] = dojo.toJson( arguments[1] );
@@ -2058,13 +2068,13 @@ Browser.prototype.cookie = function() {
     }
 
     return dojo.cookie.apply( dojo.cookie, arguments );
-};
+},
 
 /**
  * @private
  */
 
-Browser.prototype.createNavBox = function( parent ) {
+createNavBox: function( parent ) {
 
     var navbox = dojo.create( 'div', { id: 'navbox', style: { 'text-align': 'center' } }, parent );
 
@@ -2182,7 +2192,10 @@ Browser.prototype.createNavBox = function( parent ) {
     this.locationBox.focusNode.spellcheck = false;
     dojo.query('div.dijitArrowButton', this.locationBox.domNode ).orphan();
     dojo.connect( this.locationBox.focusNode, "keydown", this, function(event) {
-                      if (event.keyCode == dojo.keys.ENTER) {
+                      if( event.keyCode == keys.ESCAPE ) {
+                          this.locationBox.set('value','');
+                      }
+                      else if (event.keyCode == keys.ENTER) {
                           this.locationBox.closeDropDown(false);
                           this.navigateTo( this.locationBox.get('value') );
                           this.goButton.set('disabled',true);
@@ -2253,7 +2266,7 @@ Browser.prototype.createNavBox = function( parent ) {
 
                     // only trigger navigation if actually switching sequences
                     if( newRefName != this.refSeq.name ) {
-                        this.navigateTo(newRefName);
+                        this.navigateToLocation({ ref: newRefName });
                     }
                 })
             }).placeAt( refSeqSelectBoxPlaceHolder );
@@ -2293,19 +2306,19 @@ Browser.prototype.createNavBox = function( parent ) {
     }));
 
     return navbox;
-};
+},
 
 /**
  * Return the current highlight region, or null if none.
  */
-Browser.prototype.getHighlight = function() {
+getHighlight: function() {
     return this._highlight || null;
-};
+},
 
 /**
  * Set a new highlight.  Returns the new highlight.
  */
-Browser.prototype.setHighlight = function( newHighlight ) {
+setHighlight: function( newHighlight ) {
 
     if( newHighlight && ( newHighlight instanceof Location ) )
         this._highlight = newHighlight;
@@ -2315,49 +2328,46 @@ Browser.prototype.setHighlight = function( newHighlight ) {
     this.publish( '/jbrowse/v1/n/globalHighlightChanged', [this._highlight] );
 
     return this.getHighlight();
-};
+},
 
 
-Browser.prototype._updateHighlightClearButton = function() {
+_updateHighlightClearButton: function() {
     if( this._highlightClearButton ) {
         this._highlightClearButton.set( 'disabled', !!! this._highlight );
         //this._highlightClearButton.set( 'label', 'Clear highlight' + ( this._highlight ? ' - ' + this._highlight : '' ));
     }
-};
+},
 
 
-Browser.prototype.clearHighlight = function() {
+clearHighlight: function() {
     if( this._highlight ) {
         delete this._highlight;
         this.publish( '/jbrowse/v1/n/globalHighlightChanged', [] );
     }
-};
+},
 
-Browser.prototype.setHighlightAndRedraw = function( location ) {
+setHighlightAndRedraw: function( location ) {
     var oldHighlight = this.getHighlight();
     if( oldHighlight )
         this.view.hideRegion( oldHighlight );
     this.view.hideRegion( location );
     this.setHighlight( location );
     this.view.showVisibleBlocks( false );
-};
+},
 
 /**
  * Clears the old highlight if necessary, sets the given new
  * highlight, and updates the display to show the highlighted location.
  */
-Browser.prototype.showRegionWithHighlight = function( location ) {
+showRegionWithHighlight: function( location ) {
     var oldHighlight = this.getHighlight();
     if( oldHighlight )
         this.view.hideRegion( oldHighlight );
     this.view.hideRegion( location );
     this.setHighlight( location );
     this.showRegion( location );
-};
-
-
-return Browser;
-
+}
+});
 });
 
 

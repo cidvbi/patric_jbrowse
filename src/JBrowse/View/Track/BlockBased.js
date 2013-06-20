@@ -20,6 +20,7 @@ define( [
 			'dijit/Tooltip',
             'JBrowse/Util',
             'JBrowse/Component',
+            'JBrowse/FeatureFiltererMixin',
             'JBrowse/Errors',
             'JBrowse/View/TrackConfigEditor',
             'JBrowse/View/ConfirmDialog',
@@ -47,6 +48,7 @@ define( [
 				  dijitTooltip,
                   Util,
                   Component,
+                  FeatureFiltererMixin,
                   Errors,
                   TrackConfigEditor,
                   ConfirmDialog,
@@ -56,7 +58,7 @@ define( [
 
 // we get `own` and `destroy` from Destroyable, see dijit/Destroyable docs
 
-return declare( [Component,DetailsMixin,Destroyable],
+return declare( [Component,DetailsMixin,FeatureFiltererMixin,Destroyable],
 /**
  * @lends JBrowse.View.Track.BlockBased.prototype
  */
@@ -77,6 +79,9 @@ return declare( [Component,DetailsMixin,Destroyable],
         this.shown = true;
         this.empty = false;
         this.browser = args.browser;
+
+        this.setFeatureFilterParentComponent( this.browser.view );
+
         this.store = args.store;
     },
 
@@ -129,6 +134,9 @@ return declare( [Component,DetailsMixin,Destroyable],
         this.sizeInit(numBlocks, widthPct);
         this.labelHTML = "";
         this.labelHeight = 0;
+
+        if( this.config.initiallyPinned )
+            this.setPinned( true );
 
         if( ! this.label ) {
             this.makeTrackLabel();

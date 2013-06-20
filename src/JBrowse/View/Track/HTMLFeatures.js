@@ -601,8 +601,11 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
             var uniqueId = feature.id();
             if( ! this._featureIsRendered( uniqueId ) ) {
                 /* feature render, adding to block, centering refactored into addFeatureToBlock() */
-                this.addFeatureToBlock( feature, uniqueId, block, scale, labelScale, descriptionScale,
-                                        containerStart, containerEnd );
+                // var filter = this.browser.view.featureFilter;
+                if( this.filterFeature( feature ) )  {
+                    this.addFeatureToBlock( feature, uniqueId, block, scale, labelScale, descriptionScale,
+                                            containerStart, containerEnd );
+               }
             }
         });
 
@@ -706,6 +709,11 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
             this.minusArrowHeight = glyphBox.h;
             document.body.removeChild(ah);
         }
+    },
+
+    hideAll: function() {
+        this._clearLayout();
+        return this.inherited(arguments);
     },
 
     getFeatDiv: function( feature )  {
