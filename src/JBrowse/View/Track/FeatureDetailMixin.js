@@ -39,9 +39,13 @@ return declare(null,{
             eventConf.click = (this.config.style||{}).linkTemplate
                     ? { action: "newWindow", url: this.config.style.linkTemplate }
                     : { action: "contentDialog",
-                        title: '{type} {name}',
+                        /*title: '{type} {name}',*/ title: 'Feature Details',
                         content: dojo.hitch( this, 'defaultFeatureDetail' ) };
         }
+
+		if ( ! eventConf.mouseover ) {
+			eventConf.mouseover = { action: "tooltip", msg: this.config.tooltip };
+		}
 
         // process the configuration to set up our event handlers
         this.eventHandlers = (function() {
@@ -60,6 +64,7 @@ return declare(null,{
             return handlers;
         }).call(this);
         this.eventHandlers.click = this._makeClickHandler( this.eventHandlers.click );
+		this.eventHandlers.mouseover = this._makeMouseOverHandler( this.eventHandlers.mouseover );
     },
 
     /**
@@ -69,15 +74,46 @@ return declare(null,{
     defaultFeatureDetail: function( /** JBrowse.Track */ track, /** Object */ f, /** HTMLElement */ featDiv, /** HTMLElement */ container ) {
         container = container || dojo.create('div', { className: 'detail feature-detail feature-detail-'+track.name.replace(/\s+/g,'_').toLowerCase(), innerHTML: '' } );
 
-        this._renderCoreDetails( track, f, featDiv, container );
+        //this._renderCoreDetails( track, f, featDiv, container );
+        this._renderPATRICDetails( track, f, featDiv, container );
 
-        this._renderAdditionalTagsDetail( track, f, featDiv, container );
+        //this._renderAdditionalTagsDetail( track, f, featDiv, container );
 
         this._renderUnderlyingReferenceSequence( track, f, featDiv, container );
 
-        this._renderSubfeaturesDetail( track, f, featDiv, container );
+        //this._renderSubfeaturesDetail( track, f, featDiv, container );
 
         return container;
+    },
+
+    _renderPATRICDetails: function( track, f, featDiv, container ) {
+        var coreDetails = dojo.create('div', { className: 'core' }, container );
+	
+		var coreInfo = "";
+		coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + f.get("na_feature_id") + "\" target=_blank>" + f.get("Name");
+		if (f.get("Refseq") != undefined && f.get("Refseq") != "") {
+			coreInfo += " | " + f.get("Refseq");
+		}
+		if (f.get("Gene") != undefined && f.get("Gene") != "") {
+			 coreInfo += " | " + f.get("Gene");
+		}
+		coreInfo += "</a>";
+		
+		if (f.get("Product") != "") {
+			coreInfo += "<br>" + f.get("Product");
+		}
+		coreInfo += "<br>" + f.get("Type") + ": " + f.get("Start") + " ... " + f.get("End") + " (" + f.get("Strand") + ")";
+		
+		domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
+
+		var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feture, view</h2>' }, container );
+		var xtrnalHtml = "";
+			xtrnalHtml += "<a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("na_feature_id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
+			xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("na_feature_id") + "\" target=_blank>Pathways</a>";
+			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("na_feature_id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
+			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("na_feature_id") + "\" target=_blank>Correlated genes</a>";
+			xtrnalHtml += "<br><br>";
+		domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
     },
 
     _renderCoreDetails: function( track, f, featDiv, container ) {
