@@ -90,28 +90,28 @@ return declare(null,{
         var coreDetails = dojo.create('div', { className: 'core' }, container );
 	
 		var coreInfo = "";
-		coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + f.get("na_feature_id") + "\" target=_blank>" + f.get("Name");
-		if (f.get("Refseq") != undefined && f.get("Refseq") != "") {
-			coreInfo += " | " + f.get("Refseq");
+		coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + f.get("id") + "\" target=_blank>" + f.get("locus_tag");
+		if (f.get("refseq") != undefined && f.get("refseq") != "") {
+			coreInfo += " | " + f.get("refseq");
 		}
-		if (f.get("Gene") != undefined && f.get("Gene") != "") {
-			 coreInfo += " | " + f.get("Gene");
+		if (f.get("gene") != undefined && f.get("gene") != "") {
+			 coreInfo += " | " + f.get("gene");
 		}
 		coreInfo += "</a>";
 		
-		if (f.get("Product") != "") {
-			coreInfo += "<br>" + f.get("Product");
+		if (f.get("product") != "") {
+			coreInfo += "<br>" + f.get("product");
 		}
-		coreInfo += "<br>" + f.get("Type") + ": " + f.get("Start") + " ... " + f.get("End") + " (" + f.get("Strand") + ")";
+		coreInfo += "<br>" + f.get("type") + ": " + f.get("start") + " ... " + f.get("end") + " (" + f.get("strand") + ")";
 		
 		domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
 
 		var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feture, view</h2>' }, container );
 		var xtrnalHtml = "";
-			xtrnalHtml += "<a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("na_feature_id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
-			xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("na_feature_id") + "\" target=_blank>Pathways</a>";
-			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("na_feature_id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
-			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("na_feature_id") + "\" target=_blank>Correlated genes</a>";
+			xtrnalHtml += "<a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
+			xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
+			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
+			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
 			xtrnalHtml += "<br><br>";
 		domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
     },
