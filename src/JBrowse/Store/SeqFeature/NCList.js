@@ -42,7 +42,8 @@ return declare([ SeqFeatureStore, DeferredFeaturesMixin, DeferredStatsMixin ],
 
     _load: function() {
         var url = this.resolveUrl(
-            this.urlTemplates.tracklist
+            this.urlTemplates.tracklist,
+			{'sid': this.refSeq.sid}
         );
 
         // fetch the trackdata
