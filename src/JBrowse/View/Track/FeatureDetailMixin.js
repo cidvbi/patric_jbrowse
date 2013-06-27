@@ -39,7 +39,7 @@ return declare(null,{
             eventConf.click = (this.config.style||{}).linkTemplate
                     ? { action: "newWindow", url: this.config.style.linkTemplate }
                     : { action: "contentDialog",
-                        /*title: '{type} {name}',*/ title: 'Feature Details',
+                        /*title: '{type} {name}',*/ title:' ', closable: false,
                         content: dojo.hitch( this, 'defaultFeatureDetail' ) };
         }
 
@@ -87,7 +87,7 @@ return declare(null,{
     },
 
     _renderPATRICDetails: function( track, f, featDiv, container ) {
-        var coreDetails = dojo.create('div', { className: 'core' }, container );
+        var coreDetails = dojo.create('div', { className: 'core', innerHTML: '<h2 class="sectiontitle">Feature Details</h2>' }, container );
 	
 		var coreInfo = "";
 		coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + f.get("id") + "\" target=_blank>" + f.get("locus_tag");
@@ -106,13 +106,13 @@ return declare(null,{
 		
 		domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
 
-		var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feture, view</h2>' }, container );
+		var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feature, view:</h2>' }, container );
 		var xtrnalHtml = "";
+		// need to add link to genome browser in case compare-region-viewer opens this dialog
 			xtrnalHtml += "<a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
 			xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
 			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
 			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
-			xtrnalHtml += "<br><br>";
 		domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
     },
 
@@ -215,8 +215,10 @@ return declare(null,{
     _renderUnderlyingReferenceSequence: function( track, f, featDiv, container ) {
 
         // render the sequence underlying this feature if possible
-        var field_container = dojo.create('div', { className: 'field_container feature_sequence' }, container );
-        dojo.create( 'h2', { className: 'field feature_sequence', innerHTML: 'Region sequence', title: 'reference sequence underlying this '+(f.get('type') || 'feature') }, field_container );
+        //var field_container = dojo.create('div', { className: 'field_container feature_sequence' }, container );
+        //dojo.create( 'h2', { className: 'field feature_sequence', innerHTML: 'Region sequence', title: 'reference sequence underlying this '+(f.get('type') || 'feature') }, field_container );
+		var field_container = dojo.create('div', { className: 'additional' }, container );
+		dojo.create( 'h2', { className: 'sectiontitle', innerHTML: 'NA Sequence', title: 'reference sequence underlying this '+(f.get('type') || 'feature') }, field_container );
         var valueContainerID = 'feature_sequence'+this._uniqID();
         var valueContainer = dojo.create(
             'div', {
