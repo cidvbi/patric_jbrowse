@@ -39,7 +39,7 @@ return declare(null,{
             eventConf.click = (this.config.style||{}).linkTemplate
                     ? { action: "newWindow", url: this.config.style.linkTemplate }
                     : { action: "contentDialog",
-                        /*title: '{type} {name}',*/ title:' ', closable: false,
+                        /*title: '{type} {name}',*/ title:' ',
                         content: dojo.hitch( this, 'defaultFeatureDetail' ) };
         }
 
