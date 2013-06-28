@@ -102,17 +102,18 @@ return declare(null,{
 		if (f.get("product") != "") {
 			coreInfo += "<br>" + f.get("product");
 		}
-		coreInfo += "<br>" + f.get("type") + ": " + f.get("start") + " ... " + f.get("end") + " (" + f.get("strand") + ")";
+		coreInfo += "<br>" + f.get("type") + ": " + f.get("start") + " ... " + f.get("end") + " (" + f.get("strand_str") + ")";
 		
 		domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
 
 		var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feature, view:</h2>' }, container );
 		var xtrnalHtml = "";
 		// need to add link to genome browser in case compare-region-viewer opens this dialog
-			xtrnalHtml += "<a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
-			xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
-			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
-			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
+		xtrnalHtml += "<a href=\"GenomeBrowser?cType=feature&cId=" + f.get("id") + "&loc=" + (f.get("start")-1000) + "..." + (f.get("end")+1000) + "&tracks=DNA,PATRICGenes\" target=_blank>Genome Browser</a>";
+		xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
+		xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
+		xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
+		xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
 		domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
     },
 
