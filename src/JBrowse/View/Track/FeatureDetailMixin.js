@@ -39,7 +39,7 @@ return declare(null,{
             eventConf.click = (this.config.style||{}).linkTemplate
                     ? { action: "newWindow", url: this.config.style.linkTemplate }
                     : { action: "contentDialog",
-                        /*title: '{type} {name}',*/ title:' ',
+                        /*title: '{type} {name}',*/ title:'&nbsp;',
                         content: dojo.hitch( this, 'defaultFeatureDetail' ) };
         }
 
@@ -108,7 +108,6 @@ return declare(null,{
 
 		var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feature, view:</h2>' }, container );
 		var xtrnalHtml = "";
-		// need to add link to genome browser in case compare-region-viewer opens this dialog
 		xtrnalHtml += "<a href=\"GenomeBrowser?cType=feature&cId=" + f.get("id") + "&loc=" + (f.get("start")-1000) + "..." + (f.get("end")+1000) + "&tracks=DNA,PATRICGenes\" target=_blank>Genome Browser</a>";
 		xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
 		xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
