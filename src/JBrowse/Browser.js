@@ -151,8 +151,8 @@ constructor: function(params) {
                            //    the passed defaults, or the last-resort default of "DNA"?
                            var origTracklist =
                                   thisB.config.forceTracks
-                               || thisB.cookie( "tracks" )
                                || thisB.config.defaultTracks
+                               || thisB.cookie( "tracks" )
                                || "DNA";
 
                            thisB.showTracks( origTracklist );
