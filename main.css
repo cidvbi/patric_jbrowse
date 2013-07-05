@@ -838,6 +838,7 @@ a.dialog-new-window {
 /* styles for popup feature detail dialogs from tracks */
 .feature-detail {
 /*    width: 50em;*/
+	width: 542px;
     color: #333;
 }
 .feature-detail .genotype_summary {
