@@ -102,7 +102,7 @@ return declare(null,{
 		if (f.get("product") != "") {
 			coreInfo += "<br>" + f.get("product");
 		}
-		coreInfo += "<br>" + f.get("type") + ": " + f.get("start") + " ... " + f.get("end") + " (" + f.get("strand_str") + ")";
+		coreInfo += "<br>" + f.get("type") + ": " + f.get("start_str") + " ... " + f.get("end") + " (" + f.get("strand_str") + ")";
 		
 		domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
 
