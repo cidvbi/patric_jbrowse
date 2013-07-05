@@ -112,7 +112,7 @@ return declare(null,{
 		xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000\" target=_blank>Compare Region Viewer</a>";
 		xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
 		xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
-		xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
+		xtrnalHtml += "<br><a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
 		domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
     },
 
@@ -240,7 +240,7 @@ return declare(null,{
                         // parser, but this callback may be called either
                         // before or after that happens.  if the fetch by
                         // ID fails, we have come back before the parse.
-                        var textArea = new FASTAView({ width: 62, htmlMaxRows: 10 })
+                        var textArea = new FASTAView({ width: 58, htmlMaxRows: 10 })
                                            .renderHTML(
                                                { ref:   this.refSeq.name,
                                                  start: f.get('start'),
