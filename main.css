@@ -168,7 +168,7 @@ div.vertical_scrollbar .vertical_position_marker {
     position: relative;
     text-align: center;
 }
-#navbox .dijitButton, #navbox .dijitTextBox, #navbox .dijitSelect {
+#navbox .dijitButton, #navbox .dijitToggleButton, #navbox .dijitTextBox, #navbox .dijitSelect {
     height: 20px;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
@@ -187,6 +187,17 @@ div.vertical_scrollbar .vertical_position_marker {
 #navbox * {
     font-size: 12px;
     font-family: sans-serif;
+}
+
+#navbox .highlightButton.dijitChecked .dijitButtonNode {
+    background: #E9F10C;
+}
+#navbox .highlightButton .dijitIcon {
+    position: relative;
+    left: 3px;
+}
+#navbox .highlightButton .dijitButtonContents {
+    outline: none;
 }
 
 .moreMatches {
@@ -493,13 +504,7 @@ div.track-label, div.tracklist-label {
 
     border-width: 1px;
     border-style: solid;
-
-    border-top-color: #999;
-    border-left-color: #999;
-    border-bottom-color: #555
-    border-right-color: #555;
-
-    border-radius: 6px;
+    border-color: #999;
 
     color: #111;
     font-weight: bold;
@@ -508,6 +513,7 @@ div.track-label, div.tracklist-label {
 div.tracklist-label {
     white-space: nowrap;
     overflow: hidden;
+    margin-top: -1px;
 }
 
 div.tracklist-label.collapsed {
@@ -639,13 +645,15 @@ div.tracklist-label {
 }
 div.tracklist-label:hover {
     background-color:  #396494;
-    color: #fefefe;
     border: 1px solid black;
 }
 
 div.tracklist-container.dojoDndItemSelected {
     background-color:  #396494;
     background-color: rgb(110, 132, 156)
+}
+div.tracklist-container.dojoDndItemSelected .tracklist-label {
+    background-color: #b2c3d6;
 }
 
 #trackPane {
@@ -672,7 +680,7 @@ div.tracklist-container.dojoDndItemSelected {
 }
 
 div.tracklist-container {
-    padding: 2px 5px;
+    padding: 0 4px;
 }
 
 .tracklist-container.dojoDndItemBefore {
@@ -809,7 +817,7 @@ div.message {
     background: #eee;
 }
 div.block > div.message {
-    margin-top: 1em;
+    margin: 1em 0;
     position: absolute;
 }
 div.block:hover > div.message {
@@ -818,15 +826,12 @@ div.block:hover > div.message {
 
 .tundra .dijitDialogPaneContent {
     border-top: 1px solid #acacac;
+    font-family: sans-serif;
 }
 
 /* styles dealing with popups launched by clicking on features */
 .popup-dialog-iframe .dijitDialogPaneContent {
     padding: 0;
-}
-
-.export-view-dialog .dijitDialogPaneContent {
-    background: #fafafa;
 }
 
 /* styles for popup dialogs */
@@ -1029,4 +1034,3 @@ table.baseQuality td {
     display: block;
     text-align: center;
 }
-

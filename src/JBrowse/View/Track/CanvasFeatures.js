@@ -5,6 +5,9 @@
 define( [
             'dojo/_base/declare',
             'dojo/_base/array',
+            'dojo/_base/lang',
+            'dojo/_base/event',
+            'dojo/mouse',
             'dojo/dom-construct',
             'dojo/dom-geometry',
             'dojo/Deferred',
@@ -12,12 +15,18 @@ define( [
             'JBrowse/has',
             'JBrowse/View/GranularRectLayout',
             'JBrowse/View/Track/BlockBased',
+            'JBrowse/View/Track/ExportMixin',
             'JBrowse/Errors',
-            'JBrowse/View/Track/FeatureDetailMixin'
+            'JBrowse/View/Track/FeatureDetailMixin',
+            'JBrowse/View/Track/_FeatureContextMenusMixin',
+            'JBrowse/Model/Location'
         ],
         function(
             declare,
             array,
+            lang,
+            domEvent,
+            mouse,
             domConstruct,
             domGeom,
             Deferred,
@@ -25,8 +34,11 @@ define( [
             has,
             Layout,
             BlockBasedTrack,
+            ExportMixin,
             Errors,
-            FeatureDetailMixin
+            FeatureDetailMixin,
+            FeatureContextMenuMixin,
+            Location
         ) {
 
 /**
@@ -63,14 +75,16 @@ var FRectIndex = declare( null,  {
     }
 });
 
-return declare( [BlockBasedTrack,FeatureDetailMixin], {
+return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMenuMixin], {
 
     constructor: function( args ) {
-        this._setupEventHandlers();
         this.glyphsLoaded = {};
         this.glyphsBeingLoaded = {};
         this.regionStats = {};
         this.showLabels = this.config.style.showLabels;
+        this.displayMode = this.config.displayMode;
+
+        this._setupEventHandlers();
     },
 
     _defaultConfig: function() {
@@ -78,7 +92,7 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
             maxFeatureScreenDensity: 400,
 
             // default glyph class to use
-            glyph: 'JBrowse/View/FeatureGlyph/Box',
+            glyph: lang.hitch( this, 'guessGlyphType' ),
 
             // maximum number of pixels on each side of a
             // feature's bounding coordinates that a glyph is
@@ -89,15 +103,50 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
             maxHeight: 600,
 
             style: {
-
                 // not configured by users
                 _defaultHistScale: 4,
                 _defaultLabelScale: 30,
                 _defaultDescriptionScale: 120,
 
                 showLabels: true
-            }
+            },
+
+            displayMode: 'normal',
+
+            events: {
+                contextmenu: function( feature, fRect, block, track, evt ) {
+                    evt = domEvent.fix( evt );
+                    if( fRect && fRect.contextMenu )
+                        fRect.contextMenu._openMyself({ target: block.featureCanvas, coords: { x: evt.pageX, y: evt.pageY }} );
+                    domEvent.stop( evt );
+                }
+            },
+
+            menuTemplate: [
+                { label: 'View details',
+                  title: '{type} {name}',
+                  action: 'contentDialog',
+                  iconClass: 'dijitIconTask',
+                  content: dojo.hitch( this, 'defaultFeatureDetail' )
+                },
+                { label: function() {
+                      return 'Highlight this '
+                          +( this.feature && this.feature.get('type') ? this.feature.get('type')
+                                                                      : 'feature'
+                           );
+                  },
+                  action: function() {
+                     var loc = new Location({ feature: this.feature, tracks: [this.track] });
+                     this.track.browser.setHighlightAndRedraw(loc);
+                  },
+                  iconClass: 'dijitIconFilter'
+                }
+            ]
         };
+    },
+
+    guessGlyphType: function(feature) {
+        return 'JBrowse/View/FeatureGlyph/'+( {'gene': 'Gene', 'mRNA': 'ProcessedTranscript' }[feature.get('type')] || 'Box' );
     },
 
     fillBlock: function( args ) {
@@ -121,12 +170,13 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
                 var renderHints = dojo.mixin(
                     {
                         stats: stats,
+                        displayMode: this.displayMode,
                         showFeatures: scale >= ( this.config.style.featureScale
                                                  || stats.featureDensity / this.config.maxFeatureScreenDensity ),
-                        showLabels: this.showLabels
+                        showLabels: this.showLabels && this.displayMode == "normal"
                             && scale >= ( this.config.style.labelScale
                                           || stats.featureDensity * this.config.style._defaultLabelScale ),
-                        showDescriptions: this.showLabels
+                        showDescriptions: this.showLabels && this.displayMode == "normal"
                             && scale >= ( this.config.style.descriptionScale
                                           || stats.featureDensity * this.config.style._defaultDescriptionScale)
                     },
@@ -155,17 +205,21 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
         );
     },
 
+    // create the layout if we need to, and if we can
     _getLayout: function( scale ) {
-        // create the layout if we need to, and if we can
         if( ! this.layout || this.layout.pitchX != 4/scale ) {
             // if no layoutPitchY configured, calculate it from the
             // height and marginBottom (parseInt in case one or both are functions), or default to 3 if the
             // calculation didn't result in anything sensible.
             var pitchY = this.config.layoutPitchY || 4;
-            this.layout = new Layout({ pitchX: 4/scale, pitchY: pitchY, maxHeight: this.getConf('maxHeight') });
+            this.layout = new Layout({ pitchX: 4/scale, pitchY: pitchY, maxHeight: this.getConf('maxHeight'), displayMode: this.displayMode });
         }
 
         return this.layout;
+    },
+
+    _clearLayout: function() {
+        delete this.layout;
     },
 
     hideAll: function() {
@@ -247,7 +301,6 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
                                 function( feature ) {
                                     if( thisB.destroyed || ! thisB.filterFeature( feature ) )
                                         return;
-
                                     fRects.push( null ); // put a placeholder in the fRects array
                                     featuresInProgress++;
                                     var rectNumber = fRects.length-1;
@@ -273,7 +326,6 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
                                             }
                                             else {
                                                 // laid out successfully
-                                                fRect.glyph = glyph;
                                                 if( !( fRect.l >= blockWidthPx || fRect.l+fRect.w < 0 ) )
                                                     fRects[rectNumber] = fRect;
                                             }
@@ -369,34 +421,52 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
             return;
         }
 
-        // make features get highlighted on mouse move
-        block.own( on( block.featureCanvas, 'mousemove', function( evt ) {
-                domGeom.normalizeEvent( evt );
-                var bpX = evt.layerX / block.scale + block.startBase;
-                var feature = thisB.layout.getByCoord( bpX, evt.layerY );
-                thisB.mouseoverFeature( feature );
-            }));
-        block.own( on( block.featureCanvas, 'mouseout', function( evt ) {
-                    thisB.mouseoverFeature( undefined );
-            }));
+        if( this.displayMode != 'collapsed' ) {
+            // make features get highlighted on mouse move
+            block.own( on( block.featureCanvas, 'mousemove', function( evt ) {
+                               domGeom.normalizeEvent( evt );
+                               var bpX = evt.offsetX / block.scale + block.startBase;
+                               var feature = thisB.layout.getByCoord( bpX, evt.offsetY );
+                               thisB.mouseoverFeature( feature );
+                           }));
+            block.own( on( block.featureCanvas, 'mouseout', function( evt ) {
+                               thisB.mouseoverFeature( undefined );
+                           }));
+        }
 
         // connect up the event handlers
+        this._connectEventHandlers( block );
+    },
+
+    _connectEventHandlers: function( block ) {
         for( var event in this.eventHandlers ) {
             var handler = this.eventHandlers[event];
-            block.own(
-                on( block.featureCanvas, event, function( evt ) {
-                    domGeom.normalizeEvent( evt );
-                    var bpX = evt.layerX / block.scale + block.startBase;
-                    var feature = thisB.layout.getByCoord( bpX, evt.layerY );
-                    if( feature ) {
-                        handler.call({
-                            track: thisB,
-                            feature: feature,
-                            callbackArgs: [ thisB, feature ]
-                        });
-                    }
-                })
-            );
+            (function( event, handler ) {
+                 var thisB = this;
+                 block.own(
+                     on( block.featureCanvas, event, function( evt ) {
+                             domGeom.normalizeEvent( evt );
+                             var bpX = evt.offsetX / block.scale + block.startBase;
+                             var feature = thisB.layout.getByCoord( bpX, evt.offsetY );
+                             if( feature ) {
+                                 var fRect = block.fRectIndex.getByID( feature.id() );
+                                 handler.call({
+                                                  track: thisB,
+                                                  feature: feature,
+                                                  fRect: fRect,
+                                                  block: block,
+                                                  callbackArgs: [ thisB, feature, fRect ]
+                                              },
+                                              feature,
+                                              fRect,
+                                              block,
+                                              thisB,
+                                              evt
+                                             );
+                             }
+                         })
+                 );
+             }).call( this, event, handler );
         }
     },
 
@@ -421,7 +491,7 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
             var thisB = this;
             array.forEach( fRects, function( fRect ) {
                 if( fRect )
-                    thisB.renderFeature( context, args.block, fRect );
+                    thisB.renderFeature( context, fRect );
             });
         }
     },
@@ -444,7 +514,7 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
             if( this.lastMouseover ) {
                 var r = block.fRectIndex.getByID( this.lastMouseover.id() );
                 if( r )
-                    this.renderFeature( context, block, r );
+                    this.renderFeature( context, r );
             }
 
             if( feature ) {
@@ -452,7 +522,8 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
                 if( ! fRect )
                     return;
 
-                fRect.glyph.mouseoverFeature( context, block, fRect );
+                fRect.glyph.mouseoverFeature( context, fRect );
+                this._refreshContextMenu( fRect );
             }
         }, this );
 
@@ -466,8 +537,63 @@ return declare( [BlockBasedTrack,FeatureDetailMixin], {
     },
 
     // draw each feature
-    renderFeature: function( context, block, fRect ) {
-        fRect.glyph.renderFeature( context, block, fRect );
+    renderFeature: function( context, fRect ) {
+        fRect.glyph.renderFeature( context, fRect );
+    },
+
+    _trackMenuOptions: function () {
+        var opts = this.inherited(arguments);
+        var thisB = this;
+
+        var displayModeList = ["normal", "compact", "collapsed"];
+        this.displayModeMenuItems = displayModeList.map(function(displayMode) {
+            return {
+                label: displayMode,
+                type: 'dijit/CheckedMenuItem',
+                title: "Render this track in " + displayMode + " mode",
+                checked: thisB.displayMode == displayMode,
+                onClick: function() {
+                    thisB.displayMode = displayMode;
+                    thisB._clearLayout();
+                    thisB.hideAll();
+                    thisB.genomeView.showVisibleBlocks(true);
+                    thisB.makeTrackMenu();
+                }
+            };
+        });
+
+        var updateMenuItems = dojo.hitch(this, function() {
+            for(var index in this.displayModeMenuItems) {
+                this.displayModeMenuItems[index].checked = (this.displayMode == this.displayModeMenuItems[index].label);
+            }
+        });
+
+        opts.push.apply(
+            opts,
+            [
+                { type: 'dijit/MenuSeparator' },
+                {
+                    label: "Display mode",
+                    iconClass: "dijitIconPackage",
+                    title: "Make features take up more or less space",
+                    children: this.displayModeMenuItems
+                },
+                { label: 'Show labels',
+                  type: 'dijit/CheckedMenuItem',
+                  checked: !!( 'showLabels' in this ? this.showLabels : this.config.style.showLabels ),
+                  onClick: function(event) {
+                      thisB.showLabels = this.checked;
+                      thisB.changed();
+                  }
+                }
+            ]
+        );
+
+        return opts;
+    },
+
+    _exportFormats: function() {
+        return [ {name: 'GFF3', label: 'GFF3', fileExt: 'gff3'}, {name: 'BED', label: 'BED', fileExt: 'bed'}, { name: 'SequinTable', label: 'Sequin Table', fileExt: 'sqn' } ];
     },
 
     destroy: function() {

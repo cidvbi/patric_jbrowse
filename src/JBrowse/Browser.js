@@ -9,6 +9,7 @@ define( [
             'dojo/DeferredList',
             'dojo/topic',
             'dojo/aspect',
+            'dojo/request',
             'JBrowse/has',
             'dojo/_base/array',
             'dijit/layout/ContentPane',
@@ -17,6 +18,7 @@ define( [
             'dijit/form/ComboBox',
             'dijit/form/Button',
             'dijit/form/Select',
+            'dijit/form/ToggleButton',
             'dijit/form/DropDownButton',
             'dijit/DropDownMenu',
             'dijit/MenuItem',
@@ -48,6 +50,7 @@ define( [
             DeferredList,
             topic,
             aspect,
+            request,
             has,
             array,
             dijitContentPane,
@@ -56,6 +59,7 @@ define( [
             dijitComboBox,
             dijitButton,
             dijitSelectBox,
+            dijitToggleButton,
             dijitDropDownButton,
             dijitDropDownMenu,
             dijitMenuItem,
@@ -328,19 +332,28 @@ fatalError: function( error ) {
             + '  <h1>Congratulations, JBrowse is on the web!</h1>'
             + "  <p>However, JBrowse could not start, either because it has not yet been configured"
             + "     and loaded with data, or because of an error.</p>"
-            + "  <p style=\"font-size: 110%; font-weight: bold\"><a title=\"View the tutorial\" href=\"docs/tutorial/\">If this is your first time running JBrowse, click here to follow the Quick-start Tutorial to get up and running.</a></p>"
-            + "  <p>Otherwise, please refer to the following resources for help in getting JBrowse up and running.</p>"
-            + '  <ul><li><a target="_blank" href="docs/tutorial/">Quick-start tutorial</a></li>'
-            + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse">JBrowse wiki</a></li>'
-            + '      <li><a target="_blank" href="docs/config.html">Configuration reference</a></li>'
-            + '      <li><a target="_blank" href="docs/featureglyphs.html">Feature glyph reference</a></li>'
+            + "  <p style=\"font-size: 110%; font-weight: bold\">If this is your first time running JBrowse, <a title=\"View the tutorial\" href=\"docs/tutorial/\" target=\"_blank\">click here to follow the Quick-start Tutorial to show your data in JBrowse.</a></p>"
+            + '  <p id="volvox_data_placeholder"></p>'
+            + "  <p>Otherwise, please refer to the following resources for help in setting up JBrowse to show your data.</p>"
+            + '  <ul><li><a target="_blank" href="docs/tutorial/">Quick-start tutorial</a> - get your data visible quickly with minimum fuss</li>'
+            + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse_Configuration_Guide">JBrowse Configuration Guide</a> - a comprehensive reference</li>'
+            + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse">JBrowse wiki main page</a></li>'
+            + '      <li><a target="_blank" href="docs/config.html"><code>biodb-to-json.pl</code> configuration reference</a></li>'
+            + '      <li><a target="_blank" href="docs/featureglyphs.html">HTMLFeatures CSS class reference</a> - prepackaged styles (CSS classes) for HTMLFeatures tracks</li>'
             + '  </ul>'
-
             + '  <div id="fatal_error_list" class="errors"> <h2>Error message(s):</h2>'
             + ( error ? '<div class="error"> '+error+'</div>' : '' )
             + '  </div>'
             + '</div>'
             ;
+        request( 'sample_data/json/volvox/successfully_run' )
+        .then( function() {
+                   try {
+                       document.getElementById('volvox_data_placeholder')
+                           .innerHTML = 'Also, it appears you have successfully run <code>./setup.sh</code>, so you can see the <a href="?data=sample_data/json/volvox" target="_blank">Volvox test data</a> here.';
+                   } catch(e) {}
+               });
+
         this.hasFatalErrors = true;
     } else {
         var errors_div = dojo.byId('fatal_error_list') || document.body;
@@ -519,7 +532,7 @@ initView: function() {
 
                 this.poweredByLink = dojo.create('a', {
                                 className: 'powered_by',
-                                innerHTML: 'JBrowse',
+                                innerHTML: this.browserMeta().title,
                                 onclick: dojo.hitch( aboutDialog, 'show' ),
                                 title: 'powered by JBrowse'
                             }, menuBar );
@@ -534,12 +547,21 @@ initView: function() {
                                             onClick: dojo.hitch( this, 'openFileDialog' )
                                         })
                                   );
+
+            this.addGlobalMenuItem( 'file', new dijitMenuItem(
+                {
+                    label: 'Add combination track',
+                    iconClass: 'dijitIconSample',
+                    onClick: dojo.hitch(this, 'createCombinationTrack')
+                }));
+
             this.renderGlobalMenu( 'file', {text: 'File'}, menuBar );
 
 
             // make the view menu
             this.addGlobalMenuItem( 'view', new dijitMenuItem({
                 label: 'Set highlight',
+                iconClass: 'dijitIconFilter',
                 onClick: function() {
                     new SetHighlightDialog({
                             browser: thisObj,
@@ -551,6 +573,7 @@ initView: function() {
             this._highlightClearButton = new dijitMenuItem(
                 {
                     label: 'Clear highlight',
+                    iconClass: 'dijitIconFilter',
                     onClick: dojo.hitch( this, function() {
                                              var h = this.getHighlight();
                                              if( h ) {
@@ -564,6 +587,7 @@ initView: function() {
             this.subscribe( '/jbrowse/v1/n/globalHighlightChanged', dojo.hitch( this, '_updateHighlightClearButton' ) );
 
             this.addGlobalMenuItem( 'view', this._highlightClearButton );
+
             this.renderGlobalMenu( 'view', {text: 'View'}, menuBar );
 
 
@@ -640,7 +664,7 @@ initView: function() {
             var shareURL = thisObj.makeCurrentViewURL();
             if( thisObj.config.updateBrowserURL && window.history && window.history.replaceState )
                 window.history.replaceState( {},"", shareURL );
-            document.title = thisObj.view.visibleRegionLocString()+' JBrowse';
+            document.title = thisObj.browserMeta().title + ' ' + thisObj.view.visibleRegionLocString();
         };
         dojo.connect( this, "onCoarseMove",                     updateLocationBar );
         this.subscribe( '/jbrowse/v1/n/tracks/visibleChanged',  updateLocationBar );
@@ -666,6 +690,36 @@ initView: function() {
                }));
             }));
         }));
+    });
+},
+
+createCombinationTrack: function() {
+    if(this._combinationTrackCount === undefined) this._combinationTrackCount = 0;
+    var d = new Deferred();
+    var storeConf = {
+        browser: this,
+        refSeq: this.refSeq,
+        type: 'JBrowse/Store/SeqFeature/Combination'
+    };
+    var storeName = this._addStoreConfig(undefined, storeConf);
+    storeConf.name = storeName;
+    this.getStore(storeName, function(store) {
+        d.resolve(true);
+    });
+    var thisB = this;
+    d.promise.then(function(){
+        var combTrackConfig = {
+            type: 'JBrowse/View/Track/Combination',
+            label: "combination_track" + (thisB._combinationTrackCount++),
+            key: "Combination Track " + (thisB._combinationTrackCount),
+            metadata: {Description: "Drag-and-drop interface that creates a track out of combinations of other tracks."},
+            store: storeName
+        };
+        // send out a message about how the user wants to create the new tracks
+        thisB.publish( '/jbrowse/v1/v/tracks/new', [combTrackConfig] );
+
+        // Open the track immediately
+        thisB.publish( '/jbrowse/v1/v/tracks/show', [combTrackConfig] );
     });
 },
 
@@ -898,6 +952,17 @@ addGlobalMenuItem: function( menuName, item ) {
  */
 _initEventRouting: function() {
     var that = this;
+
+    that.subscribe('/jbrowse/v1/v/store/new', function( storeConfigs ) {
+        array.forEach( storeConfigs, function( storeConfig ) {
+                           storeConfig = lang.mixin( {}, storeConfig );
+                           var name = storeConfig.name;
+                           delete storeConfig.name;
+                           that._addStoreConfig( name, storeConfig );
+                       });
+    });
+
+
 
     that.subscribe('/jbrowse/v1/v/tracks/hide', function( trackConfigs ) {
         that.publish( '/jbrowse/v1/c/tracks/hide', trackConfigs );
@@ -2074,7 +2139,7 @@ cookie: function() {
  */
 
 createNavBox: function( parent ) {
-
+    var thisB = this;
     var navbox = dojo.create( 'div', { id: 'navbox', style: { 'text-align': 'center' } }, parent );
 
     // container adds a white backdrop to the locationTrap.
@@ -2237,6 +2302,24 @@ createNavBox: function( parent ) {
             })
         }, dojo.create('button',{},navbox));
 
+    this.highlightButton = new dijitToggleButton({
+        //label: 'Highlight',
+        title: 'highlight a region',
+        iconClass: 'jbrowseIconHighlight',
+        onChange: function() {
+            if( this.get('checked') ) {
+                thisB.view._rubberStop();
+                thisB.view.behaviorManager.swapBehaviors('normalMouse','highlightingMouse');
+            } else {
+                thisB.view._rubberStop();
+                thisB.view.behaviorManager.swapBehaviors('highlightingMouse','normalMouse');
+            }
+        }
+    }, dojo.create('button',{},navbox));
+    this.subscribe('/jbrowse/v1/n/globalHighlightChanged',
+                   function() { thisB.highlightButton.set('checked',false); });
+
+    dojo.addClass( this.highlightButton.domNode, 'highlightButton' );
 
     this.afterMilestone('loadRefSeqs', dojo.hitch( this, function() {
 

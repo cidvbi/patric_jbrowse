@@ -86,7 +86,10 @@ return declare( SeqFeatureStore,
                       function(error) {
                           if( error.response.status == 404 ) {
                               thisB._handleTrackInfo( refData, {}, url );
-                          } else
+                          } else if( error.response.status != 200) {
+                              thisB._failAllDeferred( "Server returned an HTTP " + error.response.status + " error" );
+                          }
+                          else
                               thisB._failAllDeferred( error );
                       }
                     );
@@ -164,7 +167,7 @@ return declare( SeqFeatureStore,
                      &&
                      Math.abs(binCount - Math.round(binCount)) < .0001
                    ) {
-                       console.log('server-supplied',query);
+                       //console.log('server-supplied',query);
                        // we can use the server-supplied counts
                        var firstServerBin = Math.floor( query.start / histogramMeta.basesPerBin);
                        binCount = Math.round(binCount);
@@ -210,7 +213,7 @@ return declare( SeqFeatureStore,
         this.getDataRoot( query.ref )
             .then( function( data ) {
                 thisB._getFeatures( data, query, origFeatCallback, finishCallback, errorCallback );
-            });
+            }, errorCallback);
     },
 
     _getFeatures: function( data, query,  origFeatCallback, finishCallback, errorCallback ) {
