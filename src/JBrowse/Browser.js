@@ -192,7 +192,7 @@ version: function() {
     // when a build is put together, the build system assigns a string
     // to the variable below.
     var BUILD_SYSTEM_JBROWSE_VERSION;
-    return BUILD_SYSTEM_JBROWSE_VERSION || 'development';
+    return BUILD_SYSTEM_JBROWSE_VERSION || 'PATRIC';
 }.call(),
 
 
@@ -758,7 +758,7 @@ browserMeta: function() {
     about.title = about.title || 'JBrowse';
 
     var verstring = this.version && this.version.match(/^\d/)
-        ? this.version : '(development version)';
+        ? this.version : '(PATRIC version)';
 
     if( about.description ) {
         about.description += '<div class="powered_by">'
