@@ -1,5 +1,59 @@
 {{$NEXT}}
 
+ * Fixed a bug in which event handlers and blocks in CanvasFeatures
+   tracks were not being properly cleaned up.  The most prominent
+   visible consequences of this were duplicate dialog boxes being
+   opened when clicking on a canvas feature.
+
+# Release 1.10.2     2013-08-15 13:57:16 EST5EDT
+
+ * Added mouse-over 'tooltips' to to CanvasFeatures tracks that show
+   the a feature's label and description when the mouse hovers over
+   it.  Thanks to Daniel Kasenberg for implementing this.
+
+ * Strand arrowheads in CanvasFeatures tracks now attempt to stay
+   visible on the screen, like they do in HTMLFeatures tracks.  Thanks
+   to Daniel Kasenberg for implementing this.
+
+ * Fixed bugs and inefficiencies preventing JBrowse from handling very
+   dense BigWig files.  Thanks to Michael Axtell for pointing this out
+   (issue #312).
+
+ * Fixed a bug in which features were not always laid out correctly in
+   CanvasFeature tracks when the display mode is set to "compact".
+
+ * Fixed a bug causing the text labels of mismatching bases in
+   Alignments2 tracks (i.e. `Alignments` canvas glyphs) to be slightly
+   misaligned vertically when feature labels are turned on (they are
+   off by default for Alignments glyphs).
+
+ * Fixed a bug preventing the `defaultTracks` configuration variable
+   from operating correctly.
+
+# Release 1.10.1     2013-08-06 15:32:21 EST5EDT
+
+ * Added support in `maker2jbrowse` for user-defined source tags in
+   GFF3 output from MAKER.  Thanks to Carson Holt for contributing
+   this fix.
+
+ * NCList data stores (actually the array representation used therein)
+   now store feature attribute names case-insensitively.
+
+ * Fixed a bug in which features in canvas-based feature tracks could
+   not be clicked in Firefox.  Thanks to GitHub user mke21 for
+   pointing this out, and to Daniel Kasenberg for fixing my fix to
+   work with older versions of Chrome.
+
+ * Fixed a bug with client-side GFF3 parsing in which the strand of
+   features was not being correctly parsed.
+
+ * Fixed bug preventing backward-compatibility with 1.2.1-formatted
+   data. Thanks to Daniel Kasenberg for implementing this.
+
+ * Fixed a bug in the Gene glyph that caused the browser to crash if a
+   gene feature has no subfeatures.
+
+
 # Release 1.10.0     2013-07-30 14:25:06 EST5EDT
 
 ## Major improvements
