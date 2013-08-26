@@ -32,7 +32,7 @@ define( [
             'JBrowse/TouchScreenSupport',
             'JBrowse/ConfigManager',
             'JBrowse/View/InfoDialog',
-            'JBrowse/View/FileDialog',
+            'JBrowse/View/FileDialogPATRIC',
             'JBrowse/Model/Location',
             'JBrowse/View/LocationChoiceDialog',
             'JBrowse/View/Dialog/SetHighlight',
@@ -530,12 +530,12 @@ initView: function() {
                 this.renderDatasetSelect( menuBar );
             } else {
 
-                this.poweredByLink = dojo.create('a', {
+                /*this.poweredByLink = dojo.create('a', {
                                 className: 'powered_by',
                                 innerHTML: this.browserMeta().title,
                                 onclick: dojo.hitch( aboutDialog, 'show' ),
                                 title: 'powered by JBrowse'
-                            }, menuBar );
+                            }, menuBar );*/
             }
 
             // make the file menu
@@ -618,7 +618,16 @@ initView: function() {
                                             onClick: showHelp
                                         })
                                   );
-
+	        this.addGlobalMenuItem( 'help',
+	                                new dijitMenuItem(
+	                                      {
+	                                          label: 'FAQ',
+	                                          //iconClass: 'jbrowseIconHelp',
+	                                          onClick: function() {
+												window.open('http://enews.patricbrc.org/faqs/genome-browser-faqs/');
+											}
+	                                      })
+	                                );
             this.renderGlobalMenu( 'help', {}, menuBar );
         }
 
@@ -1875,7 +1884,7 @@ makeShareLink: function () {
     // make the share link
     var button = new dijitButton({
             className: 'share',
-            innerHTML: '<span class="icon"></span> Share',
+            innerHTML: '<span class="icon"></span> Link',
             title: 'share this view',
             onClick: function() {
                 URLinput.value = shareURL;
