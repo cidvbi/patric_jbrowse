@@ -117,7 +117,7 @@ return declare( null, {
             return d;
         };
         var content = [
-                dom.create( 'div', { className: 'intro', innerHTML: 'Open gff3, bigwig, BAM (with BAM index) data files and genome browser will automatically suggest tracks to display their contents.<br/>Note: Custom tracks are available for the current session only. No track data is stored on the server' } ),
+                dom.create( 'div', { className: 'intro', innerHTML: 'Open gff3, bigwig, BAM (with BAM index) data files and genome browser will automatically suggest tracks to display their contents.<br/>Note: Custom tracks are available for the current session only. No track data is stored on the server.' } ),
                 div( { className: 'resourceControls' },
                      [ localFilesControl.domNode ]
                    ),
