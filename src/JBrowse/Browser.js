@@ -542,7 +542,14 @@ initView: function() {
             if( this.config.datasets && this.config.dataset_id ) {
                 this.renderDatasetSelect( menuBar );
             } else {
-                 thisObj.poweredBy_clickHandle = dojo.connect(this.poweredByLink, "onclick", dojo.hitch( aboutDialog, 'show') );
+				/*
+                this.poweredByLink = dojo.create('a', {
+                                className: 'powered_by',
+                                innerHTML: this.browserMeta().title,
+                                title: 'powered by JBrowse'
+                            }, menuBar );
+                thisObj.poweredBy_clickHandle = dojo.connect(this.poweredByLink, "onclick", dojo.hitch( aboutDialog, 'show') );
+      		  	*/
             }
 
             // make the file menu
