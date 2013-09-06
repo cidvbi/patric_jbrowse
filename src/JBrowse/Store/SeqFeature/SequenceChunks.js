@@ -67,7 +67,8 @@ return declare( SeqFeatureStore,
                         dirpath.push( hex.substring( i, i+3 ) );
                     }
                     return dirpath.join('/');
-                }
+                },
+				'sid': this.refSeq.sid
             }
         );
 
