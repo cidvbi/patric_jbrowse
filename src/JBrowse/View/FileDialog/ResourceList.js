@@ -73,7 +73,8 @@ return declare( null, {
         var container = this.domNode;
         dom.empty( container );
 
-        dom.create('h3', { innerHTML: 'Files and URLs' }, container );
+        //dom.create('h3', { innerHTML: 'Files and URLs' }, container );
+		dom.create('h3', { innerHTML: 'Files' }, container );
 
         if( (this._resources||[]).length ) {
             var table = dom.create('table',{}, container );
@@ -123,7 +124,7 @@ return declare( null, {
         }
         else {
             dom.create('div', { className: 'emptyMessage',
-                                innerHTML: 'Add files and URLs using the controls above.'
+                                innerHTML: 'Add files using the controls above.'
                               },
                        container);
         }
