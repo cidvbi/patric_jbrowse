@@ -4,6 +4,7 @@ define( [
             'dojo/_base/array',
             'dojo/Deferred',
             'JBrowse/Model/SimpleFeature',
+			'JBrowse/Model/XHRBlob',
             'JBrowse/Store/SeqFeature',
             'JBrowse/Store/DeferredFeaturesMixin',
             'JBrowse/Store/DeferredStatsMixin',
@@ -16,6 +17,7 @@ define( [
             array,
             Deferred,
             SimpleFeature,
+			XHRBlob,
             SeqFeatureStore,
             DeferredFeatures,
             DeferredStats,
@@ -31,6 +33,10 @@ return declare([ SeqFeatureStore, DeferredFeatures, DeferredStats, GlobalStatsEs
 {
     constructor: function( args ) {
         this.data = args.blob;
+		// in case GFF3 is added through addStores url params
+		if (args.urlTemplate != undefined) {
+			this.data =  new XHRBlob( this.resolveUrl(args.urlTemplate) );
+		}
         this.features = [];
         this._loadFeatures();
     },
