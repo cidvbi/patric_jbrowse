@@ -340,6 +340,7 @@ fatalError: function( error ) {
         var container =
             dojo.byId(this.config.containerID || 'GenomeBrowser')
             || document.body;
+		/*
         container.innerHTML = ''
             + '<div class="fatal_error">'
             + '  <h1>Congratulations, JBrowse is on the web!</h1>'
@@ -366,7 +367,8 @@ fatalError: function( error ) {
                            .innerHTML = 'Also, it appears you have successfully run <code>./setup.sh</code>, so you can see the <a href="?data=sample_data/json/volvox" target="_blank">Volvox test data</a> here.';
                    } catch(e) {}
                });
-
+		*/
+		container.innerHTML = '<div class="fatal_error"><h2>Data is not available for this feature.</h2></div>';
         this.hasFatalErrors = true;
     } else {
         var errors_div = dojo.byId('fatal_error_list') || document.body;
@@ -562,7 +564,7 @@ initView: function() {
                                             onClick: dojo.hitch( this, 'openFileDialog' )
                                         })
                                   );
-
+			/*
             this.addGlobalMenuItem( 'file', new dijitMenuItem(
                 {
                     id: 'menubar_combotrack', 
@@ -570,7 +572,7 @@ initView: function() {
                     iconClass: 'dijitIconSample',
                     onClick: dojo.hitch(this, 'createCombinationTrack')
                 }));
-
+			*/
             this.renderGlobalMenu( 'file', {text: 'File'}, menuBar );
 
             // make the view menu
