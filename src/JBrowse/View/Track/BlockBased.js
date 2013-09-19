@@ -897,11 +897,11 @@ return declare( [Component,DetailsMixin,FeatureFiltererMixin,Destroyable],
                       });
               }
             },
-            { label: 'Delete track',
-              title: "delete this track",
+            { label: 'Remove track',
+              title: "remove this track",
               iconClass: 'dijitIconDelete',
               action: function() {
-                  new ConfirmDialog({ title: 'Delete track?', message: 'Really delete this track?' })
+                  new ConfirmDialog({ title: 'Remove track From View?', message: 'This will remove the selected track from the genome browser view. Do you want to continue?' })
                      .show( function( confirmed ) {
                           if( confirmed )
                               that.browser.publish( '/jbrowse/v1/v/tracks/delete', [that.config] );
