@@ -1,5 +1,5 @@
 require( {
-           baseUrl: 'src',
+           baseUrl: '/patric-jbrowse/jbrowse/src',
            packages: [
                'dbind',
                'dgrid',
