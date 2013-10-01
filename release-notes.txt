@@ -2,15 +2,25 @@
 
 ## Minor improvements
 
- * Further improved the memory footprint of generate-names.pl.  Thanks
-   to Richard Hayes for his continued help with testing improvements
-   and reporting problems.
+ * Further improved the memory footprint and speed of
+   generate-names.pl.  Thanks to Richard Hayes for his continued help
+   with testing improvements and reporting problems.
 
 ## Bug fixes
+
+ * Fixed a bad bug that prevented combination tracks from working.
+   Thanks to Harry Yoo for pointing this out (issue #351).
 
  * Fixed a bug in which one of the temporary files used by
    generate-names.pl was not being created in the correct location.
    Thanks to Richard Hayes for testing this.
+
+ * Fixed a bug in which `generate-names.pl` could sometimes crash when
+   run with the -v (verbose) switch, or in setup.sh.
+
+ * Fixed odd behavior when entering coordinate ranges in the location
+   box under Safari.  Thanks to Keiran Raine for pointing this out
+   (issue #341).
 
 # Release 1.10.4     2013-09-23 16:16:50 EST5EDT
 

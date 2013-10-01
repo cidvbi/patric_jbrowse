@@ -78,15 +78,16 @@ var XYPlot = declare( [WiggleBase, YScaleMixin],
         var context = canvas.getContext('2d');
         var canvasHeight = canvas.height;
         var toY = dojo.hitch( this, function( val ) {
-           return canvasHeight * ( 1-dataScale.normalize.call(this, val) );
+           return canvasHeight * ( 1-dataScale.normalize(val) );
         });
         var originY = toY( dataScale.origin );
 
         var disableClipMarkers = this.config.disable_clip_markers;
+        console.log( originY, canvasHeight, JSON.stringify(dataScale) );
 
         dojo.forEach( pixels, function(p,i) {
             if (!p)
-                return
+                return;
             var score = toY(p['score']);
             var f = p['feat'];
 
@@ -145,7 +146,7 @@ var XYPlot = declare( [WiggleBase, YScaleMixin],
                     pixelValues[j]['lastUsedStore'] = store;
                 }
                 else {
-                    pixelValues[j] = { score: score, lastUsedStore: store, feat: f }
+                    pixelValues[j] = { score: score, lastUsedStore: store, feat: f };
                 }
             }
         },this);
@@ -182,7 +183,7 @@ var XYPlot = declare( [WiggleBase, YScaleMixin],
         var context = canvas.getContext('2d');
         var canvasHeight = canvas.height;
         var toY = dojo.hitch( this, function( val ) {
-           return canvasHeight * (1-dataScale.normalize.call(this, val));
+           return canvasHeight * (1-dataScale.normalize(val));
         });
 
         // draw the variance_band if requested

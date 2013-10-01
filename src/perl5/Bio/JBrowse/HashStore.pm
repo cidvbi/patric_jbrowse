@@ -37,10 +37,12 @@ use JSON 2;
 use File::Spec ();
 use File::Path ();
 
+use IO::File ();
+
 my $bucket_class = 'Bio::JBrowse::HashStore::Bucket';
 
 
-=head2 open( dir => "/path/to/dir", hash_bits => 16, sort_mem => 256 * 2**20 )
+=head2 open( dir => "/path/to/dir", hash_bits => 16, mem => 256 * 2**20, nosync => 0 )
 
 =cut
 
@@ -48,7 +50,7 @@ sub open {
     my $class = shift;
 
     # source of data: defaults, overridden by open args, overridden by meta.json contents
-    my $self = bless { @_ }, $class;
+    my $self = bless { mem => 256*2**20, @_ }, $class;
 
     $self->{final_dir} = $self->{dir} or croak "dir option required";
     $self->{dir} = $self->{work_dir} || $self->{final_dir};
@@ -64,10 +66,8 @@ sub open {
     $self->{hash_sprintf_pattern} = '%0'.int( $self->{hash_bits}/4 ).'x';
     $self->{file_extension} = '.'.$self->{format};
 
-    my $cache_items = int( $self->{sort_mem} / 50000 / 6 );
-    #warn "Hash store cache size: $cache_items";
-    $self->{bucket_cache} = $self->_make_cache( size => $cache_items );
-    $self->{bucket_path_cache_by_hex} = $self->_make_cache( size => $cache_items );
+    $self->{cache_size} = int( $self->{mem} / 50000 / 6 );
+    print "Hash store cache size: $self->{cache_size} buckets\n" if $self->{verbose};
 
     return $self;
 }
@@ -141,52 +141,122 @@ sub set {
     return $value;
 }
 
-=head2 stream_set( $kv_stream )
+=head2 stream_set( $kv_stream, $key_count )
 
 Given a stream that returns ( $key, $value ) when called repeatedly,
 set all those values in the hash.
+
+If $key_count is provided, and C<verbose> is set on this HashStore,
+will attempt to print progress bars of the loading.
 
 =cut
 
 sub stream_set {
     my $self = shift;
 
-    my $buckets = $self->_hash_to_temp( shift );
+    my $tempfile = File::Temp->new( TEMPLATE => 'names-hash-tmp-XXXXXXXX', UNLINK => 1, DIR => $self->{dir} );
+    $tempfile->close;
+    print "Temporary rehashing DBM file: $tempfile\n" if $self->{verbose};
 
-    print "Hashing done, writing buckets.\n" if $self->{verbose};
-    while( my ( $hex, $contents ) = each %$buckets ) {
-        my $bucket = $self->_getBucketFromHex( $hex );
+
+    # convert the input key => value stream to a temp hash of
+    # bucket_hex => { key => value, key => value }
+    my $bucket_count = $self->_stream_set_build_buckets( shift, $tempfile, shift );
+
+    # write out the bucket files
+    $self->_stream_set_write_bucket_files( $tempfile, $bucket_count );
+
+    print "Hash store bulk load finished.\n" if $self->{verbose};
+}
+
+sub _stream_set_write_bucket_files {
+    my ( $self, $tempfile, $bucket_count ) = @_;
+
+    # reopen the database, this is better because for iterating we
+    # don't need the big cache memory used in hashing the keys
+    tie my %buckets, 'DB_File', "$tempfile", &POSIX::O_RDONLY, 0666, DB_File::BTREEINFO->new;
+
+    my $progressbar = $bucket_count && $self->_make_progressbar('Writing bucket files', $bucket_count );
+    my $progressbar_next_update = 0;
+
+    print "Writing buckets to ".$self->{format}."...\n" if $self->{verbose} && ! $progressbar;
+
+    my $buckets_written = 0;
+    while( my ( $hex, $contents ) = each %buckets ) {
+        my $bucket = $self->_readBucket( $self->_hexToPath( $hex ) );
         $bucket->{data} = Storable::thaw( $contents );
         $bucket->{dirty} = 1;
+        $buckets_written++;
+
+        if ( $progressbar && $buckets_written > $progressbar_next_update ) {
+            $progressbar_next_update = $progressbar->update( $buckets_written );
+        }
+    }
+    if ( $progressbar && $buckets_written >= $progressbar_next_update ) {
+        $progressbar->update( $bucket_count );
     }
 }
 
-sub _hash_to_temp {
-    my ( $self, $kv_stream ) = @_;
+sub _stream_set_build_buckets {
+    my ( $self, $kv_stream, $tempfile, $key_count ) = @_;
 
     require POSIX;
     require File::Temp;
     require Storable;
     require DB_File;
 
-    my $tempfile = File::Temp->new( TEMPLATE => 'names-hash-tmp-XXXXXXXX', UNLINK => 1, DIR => $self->{dir} );
-    $tempfile->close;
-    tie my %buckets, 'DB_File', "$tempfile", &POSIX::O_CREAT|&POSIX::O_RDWR;
+    #my $db_conf = DB_File::HASHINFO->new;
+    my $db_conf = DB_File::BTREEINFO->new;
+    $db_conf->{flags} = 0x1;    #< DB_TXN_NOSYNC
+    $db_conf->{cachesize} = $self->{mem};
 
-    print "Temporary bucket DBM file: $tempfile\n" if $self->{verbose};
+    tie my %buckets, 'DB_File', "$tempfile", &POSIX::O_CREAT|&POSIX::O_RDWR, 0666, $db_conf;
+
+    my $progressbar = $key_count && $self->_make_progressbar( 'Rehashing to final buckets', $key_count );
+    my $progressbar_next_update = 0;
+    my $bucket_count = 0;
+    my $keys_processed = 0;
+
+    print "Rehashing to final HashStore buckets...\n" if $self->{verbose} && ! $progressbar;
+
     while ( my ( $k, $v ) = $kv_stream->() ) {
         my $hex = $self->_hex( $self->_hash( $k ) );
-        #print "$hex input $k $v\n";
         my $b = $buckets{$hex};
-        #print "$hex read ".length( $b )."\n";
-        $b = $b ? Storable::thaw( $buckets{$hex} ) : {};
+        if( $b ) {
+            $b = Storable::thaw( $buckets{$hex} );
+        } else {
+            $b = {};
+            $bucket_count++;
+        }
         $b->{$k} = $v;
         $b = Storable::freeze( $b );
         $buckets{$hex} = $b;
-        #print "$hex set ".length($b)." ".length($buckets{$hex})."\n";
+
+        $keys_processed++;
+        if ( $progressbar && $keys_processed > $progressbar_next_update ) {
+            $progressbar_next_update = $progressbar->update( $keys_processed );
+        }
+    }
+    if ( $progressbar && $keys_processed >= $progressbar_next_update ) {
+        $progressbar->update( $key_count );
     }
 
-    return \%buckets;
+    return $bucket_count;
+}
+
+sub _make_progressbar {
+    my ( $self, $description, $total_count ) = @_;
+
+    return unless $self->{verbose};
+
+    eval { require Term::ProgressBar };
+    return if $@;
+
+    my $progressbar = Term::ProgressBar->new({ name  => $description,
+                                               count => $total_count,
+                                               ETA   => 'linear'       });
+    $progressbar->max_update_rate(1);
+    return $progressbar;
 }
 
 
@@ -234,8 +304,13 @@ sub _getBucket {
 
 sub _getBucketFromHex {
     my ( $self, $hex ) = @_;
-    my $pathinfo = $self->{bucket_path_cache_by_hex}->compute( $hex, sub { $self->_hexToPath( $hex ) }  );
-    return $self->{bucket_cache}->compute( $pathinfo->{fullpath}, sub { $self->_readBucket( $pathinfo ); } );
+
+    my $bucket_cache = $self->{bucket_cache} ||= $self->_make_cache( size => $self->{cache_size} );
+    return $bucket_cache->compute( $hex, sub {
+        my $path_cache = $self->{bucket_path_cache_by_hex} ||= $self->_make_cache( size => $self->{cache_size} );
+        my $pathinfo = $path_cache->compute( $hex, sub { $self->_hexToPath( $hex ) });
+        return $self->_readBucket( $pathinfo )
+    });
 }
 
 sub _readBucket {
@@ -244,31 +319,25 @@ sub _readBucket {
     my $path = $pathinfo->{fullpath};
     my $dir = $pathinfo->{dir};
 
-    if( -f $path ) {
-        return $bucket_class->new(
-            format => $self->{format},
-            dir => $dir,
-            fullpath => $path,
-            data => eval {
-                if( $self->{format} eq 'storable' ) {
-                    Storable::retrieve( $path )
-                } else {
-                    CORE::open my $in, '<', $path or die "$! reading $path";
-                    local $/;
-                    JSON::from_json( scalar <$in> )
-                }
-            } || {}
-        );
-    }
-    else {
-        return $bucket_class->new(
-            format => $self->{format},
-            dir => $dir,
-            fullpath => $path,
-            data => {},
-            dirty => 1
-            );
-    }
+    return $bucket_class->new(
+        format => $self->{format},
+        nosync => $self->{nosync},
+        dir => $dir,
+        fullpath => $path,
+        ( -f $path
+            ? (
+                data => eval {
+                    if ( $self->{format} eq 'storable' ) {
+                        Storable::retrieve( $path )
+                      } else {
+                          CORE::open my $in, '<', $path or die "$! reading $path";
+                          local $/;
+                          JSON::from_json( scalar <$in> )
+                        }
+                } || {}
+              )
+            : ( dirty => 1 )
+        ));
 }
 
 
@@ -290,7 +359,9 @@ sub DESTROY {
         if( $self->{format} eq 'storable' ) {
             Storable::store( $self->{data}, $self->{fullpath} );
         } else {
-            CORE::open my $out, '>', $self->{fullpath} or die "$! writing $self->{fullpath}";
+            my $out = IO::File->new( $self->{fullpath}, 'w' )
+                or die "$! writing $self->{fullpath}";
+            $out->blocking( 0 ) if $self->{nosync};
             $out->print( JSON::to_json( $self->{data} ) ) or die "$! writing to $self->{fullpath}";
         }
     }
