@@ -65,7 +65,7 @@ constructor: function( args ) {
                                  }
                                 ],
                 store:        "JBrowse/Store/SeqFeature/Combination",
-                allowedOps:   ["&", "U", "X", "S"],
+                allowedOps:   ["&", "U", "X", "S", "I", "E", "G"],
                 defaultOp :   "&"
             },
             "quantitative":        {
@@ -128,6 +128,9 @@ constructor: function( args ) {
             "S": "set subtraction",
             "M": "regular mask",
             "N": "inverse mask",
+			"I": "Identical features",
+			"E": "Equivalent features",
+			"G": "Merge features",
             // These four-digit codes are used by the CombinationDialog object to differentiate different types of masking operations.
             "0000": "combine without masking",
             "0020": "use new track as mask",
@@ -496,7 +499,7 @@ _createStore: function( storeType, storeName ) {
     var d = new Deferred();
     if( !storeName ) {
         var storeConf = this._storeConfig( storeType );
-        storeName = this.browser._addStoreConfig( undefined, storeConf );
+        storeName = this.browser.addStoreConfig( undefined, storeConf );
         storeConf.name = storeName;
     }
 
@@ -738,7 +741,7 @@ showRange: function(first, last, startBase, bpPerBlock, scale, containerStart, c
           if(stores[i] && typeof stores[i].loadRegion == 'function') {
               var start = startBase;
               var end = startBase + (last + 1 - first)*bpPerBlock;
-              var loadedRegion = stores[i].loadRegion({ref: this.refSeq.name, start: start, end: end})
+              var loadedRegion = stores[i].loadRegion({ref: this.refSeq.name, start: start, end: end});
               loadedRegions.push(loadedRegion);
               loadedRegion.then(function(){}, this.errorCallback); // Add error callbacks to all deferred rejections
           }
