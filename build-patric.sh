@@ -47,5 +47,6 @@ for P in 	src/wig2png \
 	    fi;\
 	done
 mv /Users/hyun/dev/git-repo/jbrowse/JBrowse-patric//src/dojo/nls /Users/hyun/dev/git-repo/jbrowse/JBrowse-patric//src/nls;
-find /Users/hyun/dev/git-repo/jbrowse/JBrowse-patric/ -name '*.uncompressed.js' -or -name '*.consoleStripped.js' -exec rm {} ';'
+find /Users/hyun/dev/git-repo/jbrowse -name '*.uncompressed.js' -exec rm {} ';'
+find /Users/hyun/dev/git-repo/jbrowse -name '*.consoleStripped.js' -exec rm {} ';'
 #zip -q --symlinks -r JBrowse-patric.zip JBrowse-patric/;
