@@ -200,7 +200,10 @@ return declare( null, {
                                                            wrap: 'off',
                                                            cols: 80,
                                                            style: "maxWidth: 90em; overflow: scroll; overflow-y: scroll; overflow-x: scroll; overflow:-moz-scrollbars-vertical;",
-                                                           readonly: true
+                                                           readonly: true,
+                                                           style: {
+                                                              "font-family":"'Courier New', Courier, monospace"
+                                                           }
                                                        });
                                 text.value = output;
                                 var actionBar = dom.create( 'div', {
