@@ -1079,7 +1079,7 @@ return declare( [Component,DetailsMixin,FeatureFiltererMixin,Destroyable],
                     /\{([^}]+)\}/g,
                     function(match, group) {
                         var val = obj ? obj.get( group.toLowerCase() ) : undefined;
-                        if (val !== undefined)
+                        if (val !== undefined && val !== "null")
                             return val;
                         else {
                             return '';
