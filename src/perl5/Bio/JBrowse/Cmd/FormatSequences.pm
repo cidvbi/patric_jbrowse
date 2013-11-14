@@ -36,7 +36,6 @@ sub option_definitions {(
     "fasta=s@",
     "sizes=s@",
     "refs=s",
-    "refids=s",
     "reftypes=s",
     "compress",
     "trackLabel=s",
@@ -78,17 +77,8 @@ sub run {
             $gzip = ':gzip';
         }
         open my $fh, "<$gzip", $gff or die "$! reading GFF file $gff";
-        my %refSeqs;
         while ( <$fh> ) {
-            if ( /^\#\#\s*sequence-region\s+(\S+)\s+(-?\d+)\s+(-?\d+)/i ) { # header line
-                $refSeqs{$1} = {
-                    name => $1,
-                    start => $2 - 1,
-                    end => int($3),
-                    length => ($3 - $2 + 1)
-                    };
-            }
-            elsif( /^##FASTA\s*$/ ) {
+            if( /^##FASTA\s*$/i ) {
                 # start of the sequence block, pass the filehandle to our fasta database
                 $self->exportFASTA( $refs, [$fh] );
                 last;
@@ -186,17 +176,25 @@ sub exportFASTA {
         my $curr_chunk;
         my $chunk_num;
 
-        my $writechunk = sub {
-            $self->openChunkFile( $curr_seq, $chunk_num )
-                 ->print(
-                     substr( $curr_chunk, 0, $self->{chunkSize}, '' ) #< shifts off the first part of the string
-                   );
+        my $noseq = $self->opt('noseq');
+
+        my $writechunks = sub {
+            my $flush = shift;
+            return if $noseq;
+
+            while( $flush && $curr_chunk || length $curr_chunk >= $self->{chunkSize} ) {
+                $self->openChunkFile( $curr_seq, $chunk_num )
+                     ->print(
+                         substr( $curr_chunk, 0, $self->{chunkSize}, '' ) #< shifts off the first part of the string
+                         );
+                $chunk_num++;
+            }
         };
 
         local $_;
         while ( <$fasta_fh> ) {
             if ( /^\s*>\s*(\S+)\s*(.*)/ ) {
-                $writechunk->() if $curr_seq;
+                $writechunks->('flush') if $curr_seq;
 
                 if ( $accept_ref->($1) ) {
                     $chunk_num = 0;
@@ -214,15 +212,14 @@ sub exportFASTA {
             } elsif ( $curr_seq && /\S/ ) {
                 s/[\s\r\n]//g;
                 $curr_seq->{end} += length;
-                $curr_chunk .= $_;
 
-                if ( length $curr_chunk >= $self->{chunkSize} ) {
-                    $writechunk->();
-                    $chunk_num++;
+                unless( $noseq ) {
+                    $curr_chunk .= $_;
+                    $writechunks->();
                 }
             }
         }
-        $writechunk->();
+        $writechunks->('flush');
     }
 
     $self->writeRefSeqsJSON( \%refSeqs );
@@ -237,23 +234,25 @@ sub exportDB {
 
     my @queries;
 
-    if ( defined $self->opt('refids') ) {
-        for my $refid (split ",", $self->opt('refids')) {
-            push @queries, [ -db_id => $refid ];
+    if( my $reftypes = $self->opt('reftypes') ) {
+        if( $db->isa( 'Bio::DB::Das::Chado' ) ) {
+            die "--reftypes argument not supported when using the Bio::DB::Das::Chado adaptor\n";
         }
+        push @queries, [ -type => [ split /[\s,]+/, $reftypes ] ];
+    }
+
+    if( ! @queries && ! defined $refs && $db->can('seq_ids') ) {
+        $refs = join ',', $db->seq_ids;
     }
     if ( defined $refs ) {
         for my $ref (split ",", $refs) {
             push @queries, [ -name => $ref ];
         }
     }
-    if( my $reftypes = $self->opt('reftypes') ) {
-        push @queries, [ -type => [ split /[\s,]+/, $reftypes ] ];
-    }
 
     my $refCount = 0;
     for my $query ( @queries ) {
-        my @segments = $db->features( @$query );
+        my @segments = $db->isa('Bio::DB::Das::Chado') ? $db->segment( @$query ) : $db->features( @$query );
 
         unless( @segments ) {
             warn "WARNING: Reference sequence with @$query not found in input.\n";

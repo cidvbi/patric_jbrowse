@@ -9,6 +9,7 @@ define( [
             'JBrowse/Store/DeferredFeaturesMixin',
             'JBrowse/Store/DeferredStatsMixin',
             'JBrowse/Store/SeqFeature/GlobalStatsEstimationMixin',
+            'JBrowse/Model/XHRBlob',
             './GFF3/Parser'
         ],
         function(
@@ -22,6 +23,7 @@ define( [
             DeferredFeatures,
             DeferredStats,
             GlobalStatsEstimationMixin,
+            XHRBlob,
             Parser
         ) {
 
@@ -32,11 +34,11 @@ return declare([ SeqFeatureStore, DeferredFeatures, DeferredStats, GlobalStatsEs
   */
 {
     constructor: function( args ) {
-        this.data = args.blob;
-		// in case GFF3 is added through addStores url params
-		if (args.urlTemplate != undefined) {
-			this.data =  new XHRBlob( this.resolveUrl(args.urlTemplate) );
-		}
+        this.data = args.blob ||
+            new XHRBlob( this.resolveUrl(
+                             args.urlTemplate
+                         )
+                       );
         this.features = [];
         this._loadFeatures();
     },

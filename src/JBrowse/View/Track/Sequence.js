@@ -85,7 +85,6 @@ return declare( [BlockBased, ExportMixin],
                       + ( this.config.showReverseStrand ? 14 : 0 ) + 'px'
               }
             }, block.domNode );
-        blur.style.lineHeight = blur.style.height;
 
         this.heightUpdate( blur.offsetHeight+2*blur.offsetTop, blockIndex );
 

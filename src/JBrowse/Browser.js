@@ -485,6 +485,16 @@ compareReferenceNames: function( a, b ) {
     return this.regularizeReferenceName(a).localeCompare( this.regularizeReferenceName( b ) );
 },
 
+/**
+ * Regularize the reference sequence name in a location.
+ */
+regularizeLocation: function( location ) {
+    var ref = this.findReferenceSequence( location.ref );
+    if( ref )
+        location.ref = ref.name;
+    return location;
+},
+
 regularizeReferenceName: function( refname ) {
 
     if( this.config.exactReferenceSequenceNames )
@@ -564,7 +574,9 @@ initView: function() {
                                             onClick: dojo.hitch( this, 'openFileDialog' )
                                         })
                                   );
-			
+
+            this.fileDialog = new FileDialog({ browser: this });
+
             this.addGlobalMenuItem( 'file', new dijitMenuItem(
                 {
                     id: 'menubar_combotrack', 
@@ -883,7 +895,7 @@ getTrackTypes: function() {
 
 
 openFileDialog: function() {
-    new FileDialog({ browser: this })
+    this.fileDialog
         .show({
             openCallback: dojo.hitch( this, function( results ) {
                 var confs = results.trackConfs || [];
@@ -1501,7 +1513,8 @@ addRefseqs: function( refSeqs ) {
             else {
                 order = refSeqs.slice(0);
                 order.sort(
-                    this.config.refSeqOrder == 'length'            ? function( a, b ) { return a.length - b.length;  }  :
+                    this.config.refSeqOrder == 'length' || this.config.refSeqOrder == 'length ascending'
+                                                                   ? function( a, b ) { return a.length - b.length;  }  :
                     this.config.refSeqOrder == 'length descending' ? function( a, b ) { return b.length - a.length;  }  :
                     this.config.refSeqOrder == 'name descending'   ? function( a, b ) { return b.name.localeCompare( a.name ); } :
                                                                      function( a, b ) { return a.name.localeCompare( b.name ); }
@@ -1720,7 +1733,7 @@ navigateToLocation: function( location ) {
     this.afterMilestone( 'initView', dojo.hitch( this, function() {
 
         // regularize the ref seq name we were passed
-        var ref = location.ref ? this.findReferenceSequence( location.ref, this.allRefs )
+        var ref = location.ref ? this.findReferenceSequence( location.ref.name || location.ref )
                                : this.refSeq;
         if( !ref ) return;
         location.ref = ref.name;
@@ -1823,10 +1836,9 @@ searchNames: function( /**String*/ loc ) {
 
                 // if it has one location, go to it
                 if( goingTo.location ) {
-
                         //go to location, with some flanking region
                         thisB.showRegionWithHighlight( goingTo.location );
-                    }
+                }
                 // otherwise, pop up a dialog with a list of the locations to choose from
                 else if( goingTo.multipleLocations ) {
                     new LocationChoiceDialog(
@@ -2483,6 +2495,8 @@ clearHighlight: function() {
 },
 
 setHighlightAndRedraw: function( location ) {
+    location = this.regularizeLocation( location );
+
     var oldHighlight = this.getHighlight();
     if( oldHighlight )
         this.view.hideRegion( oldHighlight );
@@ -2496,6 +2510,8 @@ setHighlightAndRedraw: function( location ) {
  * highlight, and updates the display to show the highlighted location.
  */
 showRegionWithHighlight: function( location ) {
+    location = this.regularizeLocation( location );
+
     var oldHighlight = this.getHighlight();
     if( oldHighlight )
         this.view.hideRegion( oldHighlight );

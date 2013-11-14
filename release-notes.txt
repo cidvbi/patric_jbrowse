@@ -1,5 +1,144 @@
 {{$NEXT}}
 
+# Release 1.10.9     2013-11-08 15:22:50 EST5EDT
+
+## Minor improvements
+
+ * `generate-names.pl` now supports a `--incremental` or `-i` option
+   that adds names to an existing index.  Thanks to Richard Hayes for
+   reminding me that this wasn't done yet (issue #373).
+
+ * Added a lower-performance, but more backward-compatible indexing
+   backend to generate-names.pl that can be activated by passing the
+   `--safeMode` command-line argument.  The recent performance
+   improvements to generate-names.pl have apparently tickled some bugs
+   that are present in some installations.  Thanks to Josie Reinhardt
+   and GitHub user raj76 for their continued help troubleshooting
+   this.  If you find that name indexing is not working correctly, try
+   running it again with `--safeMode`, and report to the mailing list
+   if it helps.
+
+ * Added support for using the JBrowse in-memory GFF3 adaptor to
+   display web-accessible GFF3 files directly.  See
+   docs/tutorial/data_files/volvox.gff3.conf for an example
+   configuration.  Thanks to David Goodstein and Richard Hayes for
+   motivating this.
+
+## Bug fixes
+
+ * `flatfile-to-json.pl` now depends on the latest
+   Bio::GFF3::LowLevel::Parser 1.8, which fixes a bug in which
+   features with no ID, Parent, or Derives_from attributes were not
+   being included in parsed data.  Thanks to Gwendoline Andres for
+   pointing this out.
+
+ * Tweak BioPerl-handling code in biodb-to-json.pl to hopefully work
+   better with BioSQL backends. Thanks to Brian Osborne for pointing
+   this out.
+
+# Release 1.10.8     2013-10-25 11:13:30 EST5EDT
+
+## Minor improvements
+
+ * Added a new `navigateTo` action usable for customizing feature
+   left-clicks and right-click menus.  Thanks to Scott Cain for
+   requesting this.
+
+ * Added a new `feature_range_cache` option for the REST data backend.
+   If set to true, the REST backend will more aggressively cache
+   ranges of feature data.  Thanks to Daniel Troesser for pointing out
+   the need for this (issue #369).
+
+ * `maker2jbrowse` now, by default, runs `generate-names.pl` to
+   generate names indexes.  Also added a `--no_names_index` option to
+   turn this off.  Thanks to Josie Reinhardt for making me notice this
+   was missing.
+
+ * Tweaked `generate-names.pl` default indexing parameters to
+   emphasize indexing speed more.  Now defaults to a smaller average
+   file size for the on-disk JSON files it produces, which is much
+   faster to generate and write (up to 8 or 10x faster).  However, the
+   on-disk index is about 2-2.5x larger overall.
+
+ * Removed support for the `--refids` command-line argument to
+   `prepare-refseqs.pl`, which has probably never really worked.
+
+ * Improved `prepare-refseqs.pl` support for Bio::DB::Das::Chado
+   database backends.  Thanks to Gwendoline Andres for helping
+   troubleshoot this.
+
+## Bug fixes
+
+ * Fixed generate-names.pl making incorrect name indexes when using 16
+   or more bits of hashing (when the number of index entries exceeds
+   about 4 million).  Thanks to Josie Reinhardt for helping
+   troubleshoot this (issue #370).
+
+ * The faceted track selector no longer refuses to display track
+   unique labels even if they are explicitly included in the
+   `displayColumns` setting.
+
+# Release 1.10.7     2013-10-15 16:50:00 EST5EDT
+
+## Minor improvements
+
+ * Added an optional `stats/regionFeatureDensities` endpoint to the
+   REST API that makes it possible to provide binned feature counts
+   that HTMLFeatures tracks can use to display feature histograms.
+   Thanks to Stuart Watt and Daniel Troesser for pointing out the need
+   for this (issue #365).
+
+## Bug fixes
+
+ * Fixed a bad bug introduced in 1.10.6 in which FASTA files with line
+   lengths longer than the configured chunk size were not correctly
+   formatted.  Thanks to Jean-Jack Riethoven for pointing this out
+   (issue #363).
+
+ * Fixed a bug introduced in 1.10.6 in which prepare-refseqs.pl would
+   not respect the --noseq command-line option when using --fasta.
+
+ * Fixed bug in which `name` or `seq_id` attributes are required for
+   reference sequence features.  Thanks to Daniel Troesser for
+   pointing this out.
+
+ * Fixed a bug that may have prevented some types of VCF files from
+   being displayed (error message referring to `inheritedFilters`).
+
+ * Fixed a bug in which "Zoom in to see feature" in Sequence tracks
+   would wrap downwards below track at some zoom levels and window
+   widths.
+
+ * Fixed an off-by-one error in UTR attributes manufactured by the
+   `impliedUTRs` mechanism of the ProcessedTranscript glyph.  Thanks
+   to Ben Booth for pointing this out (issue #362).
+
+ * Fixed a bug in which `score` attributes of features were not being
+   recorded by `biodb-to-json.pl`.  Thanks to HongKee Moon for
+   pointing this out (issue #364).
+
+ * Removed a stray use of Carp::Always in GFF3-processing Perl code
+   that may have caused problems in some installations.
+
+# Release 1.10.6     2013-10-07 21:06:51 EST5EDT
+
+## Minor improvements
+
+ * Made the `impliedUTRs` option for ProcessedTranscript and Gene
+   glyph still attempt to create UTRs if only '''one''' of the UTRs is
+   missing from a transcript.  Thanks to Ben Booth for pointing out
+   the need for this.
+
+## Bug fixes
+
+ * Fixed bug in which the mouseover value displays for Wiggle and
+   SNPCoverage tracks would not always be hidden when the mouse leaves
+   the track.
+
+ * Fixed a bad bug that prevented fixed-scale Wiggle and SNPCoverage
+   tracks from displaying.  Thanks to Jean-Jack Riethoven and Michael
+   Axtell for pointing this out.
+
 # Release 1.10.5     2013-10-03 10:21:37 EST5EDT
 
 ## Minor improvements

@@ -52,8 +52,7 @@ sub open {
     # source of data: defaults, overridden by open args, overridden by meta.json contents
     my $self = bless { mem => 256*2**20, @_ }, $class;
 
-    $self->{final_dir} = $self->{dir} or croak "dir option required";
-    $self->{dir} = $self->{work_dir} || $self->{final_dir};
+    $self->{dir} or croak "dir option required";
 
     $self->empty if $self->{empty};
 
@@ -89,17 +88,8 @@ sub DESTROY {
             or die "$! writing $meta_path";
     }
 
-    my $final_dir = $self->{final_dir};
-    my $work_dir = $self->{dir};
-
     # free everything to flush buckets
     %$self = ();
-
-    unless( $final_dir eq $work_dir ) {
-        require File::Copy::Recursive;
-        File::Copy::Recursive::dircopy( $work_dir, $final_dir );
-    }
-
 }
 sub _meta_path {
     File::Spec->catfile( shift->{dir}, 'meta.json' );
@@ -113,6 +103,16 @@ sub _read_meta {
     my $d = eval { JSON->new->relaxed->decode( scalar <$meta> ) };
     warn $@ if $@;
     return $d || {};
+}
+
+=head2 meta
+
+return a hashref of metadata about this hash store
+
+=cut
+
+sub meta {
+    ( shift->{meta} ||= {} )
 }
 
 =head2 get( $key )
@@ -141,50 +141,94 @@ sub set {
     return $value;
 }
 
-=head2 stream_set( $kv_stream, $key_count )
+=head2 stream_set( $kv_stream, $key_count, \&merge_sub )
 
 Given a stream that returns ( $key, $value ) when called repeatedly,
 set all those values in the hash.
 
-If $key_count is provided, and C<verbose> is set on this HashStore,
-will attempt to print progress bars of the loading.
+If $key_count is provided, Term::ProgressBar is installed, and
+C<verbose> is set on this HashStore, will print progress bars.
+
+If $merge_sub is provided, it will be used to merge values in the
+input stream with any values for the same key already in the hash
+store like: C<$new_value = $merge_sub-E<gt>( $old_value, $input_value )>.
+If not provided, the values will just be overwritten.
 
 =cut
 
 sub stream_set {
     my $self = shift;
 
-    my $tempfile = File::Temp->new( TEMPLATE => 'names-hash-tmp-XXXXXXXX', UNLINK => 1, DIR => $self->{dir} );
+    my ( $perl_minor_ver ) = $^V =~ /^v?5\.(\d+)/;
+    if( $perl_minor_ver <= 10 ) {
+        die "HashStore stream_set() does not work on Perl 5.10 or older.\n";
+    }
+
+    my $tempfile = File::Temp->new( TEMPLATE => 'names-hash-tmp-XXXXXXXX', UNLINK => 1,
+                                    DIR => $self->{work_dir} || $self->{dir} );
     $tempfile->close;
     print "Temporary rehashing DBM file: $tempfile\n" if $self->{verbose};
-
 
     # convert the input key => value stream to a temp hash of
     # bucket_hex => { key => value, key => value }
     my $bucket_count = $self->_stream_set_build_buckets( shift, $tempfile, shift );
 
     # write out the bucket files
-    $self->_stream_set_write_bucket_files( $tempfile, $bucket_count );
+    my $mergeSub = shift;
+    $self->_stream_set_write_bucket_files( $tempfile, $bucket_count, $mergeSub );
 
     print "Hash store bulk load finished.\n" if $self->{verbose};
 }
 
+=head2 db_open( $filename, $flags, $mode, { cachesize => 2**24, ... } )
+
+Open and tie a DB_File in BTREE mode, with the given config options.
+Returns a hashref tied to the DB_File.
+
+=cut
+
+sub db_open {
+    my ( $self, $file, $flags, $mode, $conf ) = @_;
+    my $db_conf = DB_File::BTREEINFO->new;
+    $db_conf->{$_} = $conf->{$_} for keys %{ $conf || {} };
+    tie( my %store, 'DB_File', "$file", $flags, $mode || 0666, $db_conf);
+    return \%store;
+}
+
 sub _stream_set_write_bucket_files {
-    my ( $self, $tempfile, $bucket_count ) = @_;
+    my ( $self, $tempfile, $bucket_count, $mergeSub ) = @_;
 
     # reopen the database, this is better because for iterating we
     # don't need the big cache memory used in hashing the keys
-    tie my %buckets, 'DB_File', "$tempfile", &POSIX::O_RDONLY, 0666, DB_File::BTREEINFO->new;
+    my $buckets = $self->db_open( $tempfile, &POSIX::O_RDONLY, 0666 );
 
-    my $progressbar = $bucket_count && $self->_make_progressbar('Writing bucket files', $bucket_count );
+    my $progressbar = $bucket_count && $self->_make_progressbar('Writing/updating index bucket files', $bucket_count );
     my $progressbar_next_update = 0;
 
     print "Writing buckets to ".$self->{format}."...\n" if $self->{verbose} && ! $progressbar;
 
     my $buckets_written = 0;
-    while( my ( $hex, $contents ) = each %buckets ) {
+    while( my ( $hex, $contents ) = each %$buckets ) {
         my $bucket = $self->_readBucket( $self->_hexToPath( $hex ) );
-        $bucket->{data} = Storable::thaw( $contents );
+        if( my $bucketData = $bucket->{data} ) {
+            my $d = Storable::thaw( $contents ) || {};
+            if( $mergeSub ) {
+                for my $k ( keys %$d ) {
+                    if( exists $bucketData->{$k} ) {
+                        $bucketData->{$k} = $mergeSub->( $bucketData->{$k}, $d->{$k} );
+                    }
+                    else {
+                        $bucketData->{$k} = $d->{$k};
+                    }
+                }
+            }
+            else {
+                $bucket->{data} = { %{$bucket->{data}}, %$d };
+            }
+        }
+        else {
+            $bucket->{data} = Storable::thaw( $contents );
+        }
         $bucket->{dirty} = 1;
         $buckets_written++;
 
@@ -205,12 +249,8 @@ sub _stream_set_build_buckets {
     require Storable;
     require DB_File;
 
-    #my $db_conf = DB_File::HASHINFO->new;
-    my $db_conf = DB_File::BTREEINFO->new;
-    $db_conf->{flags} = 0x1;    #< DB_TXN_NOSYNC
-    $db_conf->{cachesize} = $self->{mem};
-
-    tie my %buckets, 'DB_File', "$tempfile", &POSIX::O_CREAT|&POSIX::O_RDWR, 0666, $db_conf;
+    my $buckets = $self->db_open( $tempfile, &POSIX::O_CREAT|&POSIX::O_RDWR, 0666,
+                                       { flags => 0x1, cachesize => $self->{mem} } );
 
     my $progressbar = $key_count && $self->_make_progressbar( 'Rehashing to final buckets', $key_count );
     my $progressbar_next_update = 0;
@@ -221,23 +261,23 @@ sub _stream_set_build_buckets {
 
     while ( my ( $k, $v ) = $kv_stream->() ) {
         my $hex = $self->_hex( $self->_hash( $k ) );
-        my $b = $buckets{$hex};
+        my $b = $buckets->{$hex};
         if( $b ) {
-            $b = Storable::thaw( $buckets{$hex} );
+            $b = Storable::thaw( $buckets->{$hex} );
         } else {
             $b = {};
             $bucket_count++;
         }
         $b->{$k} = $v;
         $b = Storable::freeze( $b );
-        $buckets{$hex} = $b;
+        $buckets->{$hex} = $b;
 
         $keys_processed++;
         if ( $progressbar && $keys_processed > $progressbar_next_update ) {
             $progressbar_next_update = $progressbar->update( $keys_processed );
         }
     }
-    if ( $progressbar && $keys_processed >= $progressbar_next_update ) {
+    if ( $progressbar && $key_count > $progressbar_next_update ) {
         $progressbar->update( $key_count );
     }
 
@@ -274,6 +314,40 @@ sub empty {
     File::Path::mkpath( $self->{dir} );
 }
 
+
+########## tied-hash support ########
+
+sub TIEHASH {
+    return shift->open( @_ );
+}
+sub FETCH {
+    return shift->get(@_);
+}
+sub STORE {
+    return shift->set(@_);
+}
+sub DELETE {
+    die 'DELETE not implemented';
+}
+sub CLEAR {
+    die 'CLEAR not implemented';
+}
+sub EXISTS {
+    return !! shift->get(@_);
+}
+sub FIRSTKEY {
+    die 'FIRSTKEY not implemented';
+}
+sub NEXTKEY {
+    die 'NEXTKEY not implemented';
+}
+sub SCALAR {
+    die 'SCALAR not implemented';
+}
+sub UNTIE {
+    die 'UNTIE not implemented';
+}
+
 ########## helper methods ###########
 
 sub _hash {
@@ -290,7 +364,7 @@ sub _hex {
 
 sub _hexToPath {
     my ( $self, $hex ) = @_;
-    my @dir = ( $self->{dir}, reverse $hex =~ /(.{1,3})/g );
+    my @dir = ( $self->{dir}, $hex =~ /(.{1,3})/g );
     my $file = (pop @dir).$self->{file_extension};
     my $dir = File::Spec->catdir(@dir);
     #warn "crc: $crc, fullpath: ".File::Spec->catfile( $dir, $file )."\n";
@@ -304,7 +378,6 @@ sub _getBucket {
 
 sub _getBucketFromHex {
     my ( $self, $hex ) = @_;
-
     my $bucket_cache = $self->{bucket_cache} ||= $self->_make_cache( size => $self->{cache_size} );
     return $bucket_cache->compute( $hex, sub {
         my $path_cache = $self->{bucket_path_cache_by_hex} ||= $self->_make_cache( size => $self->{cache_size} );

@@ -62,7 +62,7 @@ return declare( null,
 
         } else {
             this._log( 'hit', keyString );
-            this._touch( record );
+            this.touchRecord( record );
             window.setTimeout( function() {
                 callback( record.value );
             }, 1 );
@@ -79,10 +79,28 @@ return declare( null,
         return results;
     },
 
-    touch: function( inKey ) {
-        this._touch( this._cacheByKey[ this._keyString( inKey ) ] );
+    forEach: function( func, context ) {
+        if( ! context ) context = this;
+        var i = 0;
+        for( var record = this._cacheNewest; record; record = record.next ) {
+            func.call( context, record, i++ );
+        }
     },
-    _touch: function( record ) {
+    some: function( func, context ) {
+        if( ! context ) context = this;
+        var i = 0;
+        for( var record = this._cacheNewest; record; record = record.next ) {
+            if( func.call( context, record, i++ ) )
+                return true;
+        }
+        return false;
+    },
+
+    touch: function( inKey ) {
+        this.touchRecord( this._cacheByKey[ this._keyString( inKey ) ] );
+    },
+
+    touchRecord: function( record ) {
         if( ! record )
             return;
 
