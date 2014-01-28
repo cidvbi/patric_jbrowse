@@ -574,9 +574,8 @@ initView: function() {
                                             onClick: dojo.hitch( this, 'openFileDialog' )
                                         })
                                   );
-
-            this.fileDialog = new FileDialog({ browser: this });
-
+			this.fileDialog = new FileDialog({ browser: this });
+  /*
             this.addGlobalMenuItem( 'file', new dijitMenuItem(
                 {
                     id: 'menubar_combotrack', 
@@ -584,7 +583,7 @@ initView: function() {
                     iconClass: 'dijitIconSample',
                     onClick: dojo.hitch(this, 'createCombinationTrack')
                 }));
-			
+*/
             this.renderGlobalMenu( 'file', {text: 'File'}, menuBar );
 
             // make the view menu
