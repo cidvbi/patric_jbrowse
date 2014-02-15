@@ -23,8 +23,25 @@ class SimpleTrackSelector (TrackSelector):
         self.test.assert_element( \
             "//div[contains(@class,'track-label')][contains(.,'%s')]/div[contains(@class,'track-close-button')]"%tracktext) \
             .click()
-        
+
         self.test.assert_no_js_errors()
+
+class HierarchicalTrackSelector (TrackSelector):
+    def turn_on_track( self, tracktext ):
+        self._click_track( tracktext )
+        self.test.assert_track( tracktext )
+
+    def turn_off_track( self, tracktext ):
+        self._click_track( tracktext )
+
+    def _click_track( self, tracktext ):
+        # find the track in the selector and click it
+        tracklabel = self.test \
+            .assert_element( "//label[contains(@class,'tracklist-label')]/span[contains(.,'%s')]" % tracktext ) \
+            .click()
+
+        self.test.assert_no_js_errors()
+
 
 class FacetedTrackSelector (TrackSelector):
     def turn_on_track( self, tracktext ):
@@ -59,14 +76,11 @@ class FacetedTrackSelector (TrackSelector):
         # type the track's text in the text filter box
         textfilter = self.test.assert_element("//div[@id='faceted_tracksel']//label[@class='textFilterControl']//input[@type='text']")
         textfilter.send_keys( tracktext )
-        time.sleep(1)
 
         # check that the number of matching tracks is 1
         
-        matching_track_rows = self.test.assert_elements("div.dojoxGridRow")
-        assert len( matching_track_rows ) == 1, ('actually %d matching track rows: ' % len(matching_track_rows))+repr(map(lambda x: x.text, matching_track_rows))
-        track_row = matching_track_rows[0]
-        return track_row
+        self.test.wait_until_one_track () 
+        return self.test.assert_element("div.dojoxGridRow")
 
     def _close_selector( self ):
         # turn off the track selector tab

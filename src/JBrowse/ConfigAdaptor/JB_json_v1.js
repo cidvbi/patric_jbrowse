@@ -2,10 +2,20 @@ define( [ 'dojo/_base/declare',
           'dojo/_base/lang',
           'dojo/_base/array',
           'dojo/_base/json',
+          'dojo/request',
+
           'JBrowse/Util',
-          'JBrowse/Digest/Crc32',
-          'JBrowse/ConfigAdaptor/AdaptorUtil'
-        ], function( declare, lang, array, json, Util, digest, AdaptorUtil ) {
+          'JBrowse/Digest/Crc32'
+        ], function(
+            declare,
+            lang,
+            array,
+            json,
+            request,
+
+            Util,
+            digest
+        ) {
 
 var dojof = Util.dojof;
 
@@ -27,40 +37,21 @@ return declare('JBrowse.ConfigAdaptor.JB_json_v1',null,
          * Load the configuration file from a URL.
          *
          * @param args.config.url {String} URL for fetching the config file.
-         * @param args.onSuccess {Function} callback for a successful config fetch
-         * @param args.onFailure {Function} optional callback for a
-         *   config fetch failure
-         * @param args.context {Object} optional context in which to
-         *   call the callbacks, defaults to the config object itself
          */
         load: function( /**Object*/ args ) {
             var that = this;
             if( args.config.url ) {
                 var url = Util.resolveUrl( args.baseUrl || window.location.href, args.config.url );
-                var handleError = function(e) {
-                    e.url = url;
-                    if( args.onFailure )
-                        args.onFailure.call( args.context || this, e );
-                };
-                dojo.xhrGet({
-                                url: url,
-                                handleAs: 'text',
-                                load: function( o ) {
-                                    try {
-                                        o = that.parse_conf( o, args ) || {};
-                                        o.sourceUrl = url;
-                                        o = that.regularize_conf( o, args );
-                                        args.onSuccess.call( args.context || that, o );
-                                    } catch(e) {
-                                        handleError(e);
-                                    }
-                                },
-                                error: handleError
-                            });
+                return request( url, { handleAs: 'text' })
+                    .then( function( o ) {
+                               o = that.parse_conf( o, args ) || {};
+                               o.sourceUrl = url;
+                               o = that.regularize_conf( o, args );
+                               return o;
+                           });
             }
             else if( args.config.data ) {
-                var conf = this.regularize_conf( args.config.data, args );
-                args.onSuccess.call( args.context || this, conf );
+                return Util.resolved( this.regularize_conf( args.config.data, args ) );
             }
         },
 
@@ -72,7 +63,11 @@ return declare('JBrowse.ConfigAdaptor.JB_json_v1',null,
          * @returns {Object} the parsed JSON
          */
         parse_conf: function( conf_text, load_args ) {
-            return json.fromJson( conf_text );
+            try {
+                return json.fromJson( conf_text );
+            } catch(e) {
+                throw e+" when parsing "+( load_args.config.url || 'configuration' )+".";
+            }
         },
 
         /**
@@ -85,27 +80,79 @@ return declare('JBrowse.ConfigAdaptor.JB_json_v1',null,
          * @returns the same object it was passed
          */
         regularize_conf: function( o, load_args ) {
+            // if tracks is not an array, convert it to one
+            if( o.tracks && ! lang.isArray( o.tracks ) ) {
+                // if it's a single track config, wrap it in an arrayref
+                if( o.tracks.label ) {
+                    o.tracks = [ o.tracks ];
+                }
+                // otherwise, coerce it to an array
+                else {
+                    var tracks = [];
+                    for( var label in o.tracks ) {
+                        if( ! ( 'label' in o.tracks[label] ) )
+                            o.tracks[label].label = label;
+                        tracks.push( o.tracks[label] );
+                    }
+                    o.tracks = tracks;
+                }
+            }
+
+            // regularize trackMetadata.sources
+            var meta = o.trackMetadata;
+            if( meta && meta.sources ) {
+                // if it's a single source config, wrap it in an arrayref
+                if( meta.sources.url || ( typeof meta.sources == 'string' ) ) {
+                    meta.sources = [ meta.sources ];
+                }
+
+                if( ! lang.isArray( meta.sources ) ) {
+                    var sources = [];
+                    for( var name in meta.sources ) {
+                        if( ! ( 'name' in meta.sources ) )
+                            meta.sources[name].name = name;
+                        sources.push( meta.sources[name] );
+                    }
+                    meta.sources = sources;
+                }
+
+                // coerce any string source defs to be URLs, and try to detect their types
+                array.forEach( meta.sources, function( sourceDef, i ) {
+                                   if( typeof sourceDef == 'string' ) {
+                                       meta.sources[i] = { url: sourceDef };
+                                       var typeMatch = sourceDef.match( /\.(\w+)$/ );
+                                       if( typeMatch )
+                                           meta.sources[i].type = typeMatch[1].toLowerCase();
+                                   }
+                });
+            }
+
             o.sourceUrl = o.sourceUrl || load_args.config.url;
             o.baseUrl   = o.baseUrl || Util.resolveUrl( o.sourceUrl, '.' );
             if( o.baseUrl.length && ! /\/$/.test( o.baseUrl ) )
                 o.baseUrl += "/";
 
-            // set a default baseUrl in each of the track and store confs, and the names conf, if needed
             if( o.sourceUrl ) {
+                // set a default baseUrl in each of the track and store
+                // confs, and the names conf, if needed
                 var addBase =
                     []
                     .concat( o.tracks || [] )
                     .concat( dojof.values(o.stores||{}) ) ;
-
                 if( o.names )
                     addBase.push( o.names );
+
                 array.forEach( addBase, function(t) {
                     if( ! t.baseUrl )
                         t.baseUrl = o.baseUrl || '/';
                 },this);
-            }
 
-            o = AdaptorUtil.evalHooks( o );
+                //resolve the refSeqs and nameUrl if present
+                if( o.refSeqs )
+                    o.refSeqs = Util.resolveUrl( o.sourceUrl, o.refSeqs );
+                if( o.nameUrl )
+                    o.nameUrl = Util.resolveUrl( o.sourceUrl, o.nameUrl );
+            }
 
             o = this._regularizeTrackConfigs( o );
 
@@ -144,6 +191,19 @@ return declare('JBrowse.ConfigAdaptor.JB_json_v1',null,
                 );
                 trackConfig.type = trackClassName;
 
+                this._synthesizeTrackStoreConfig( conf, trackConfig );
+
+                if( trackConfig.histograms ) {
+                    if( ! trackConfig.histograms.baseUrl )
+                        trackConfig.histograms.baseUrl = trackConfig.baseUrl;
+                    this._synthesizeTrackStoreConfig( conf, trackConfig.histograms );
+                }
+            }, this);
+
+            return conf;
+        },
+
+        _synthesizeTrackStoreConfig: function( mainconf, trackConfig ) {
                 // figure out what data store class to use with the track,
                 // applying some defaults if it is not explicit in the
                 // configuration
@@ -151,16 +211,16 @@ return declare('JBrowse.ConfigAdaptor.JB_json_v1',null,
                 var storeClass = this._regularizeClass(
                     'JBrowse/Store',
                     trackConfig.storeClass                    ? trackConfig.storeClass :
-                        /\/FixedImage/.test( trackClassName ) ? 'JBrowse/Store/TiledImage/Fixed' +( trackConfig.backendVersion == 0 ? '_v0' : '' )  :
-                        /\.jsonz?$/i.test( urlTemplate )        ? 'JBrowse/Store/SeqFeature/NCList'+( trackConfig.backendVersion == 0 ? '_v0' : '' )  :
+                        /\/FixedImage/.test(trackConfig.type) ? 'JBrowse/Store/TiledImage/Fixed' +( trackConfig.backendVersion == 0 ? '_v0' : '' )  :
+                        /\.jsonz?$/i.test( urlTemplate )      ? 'JBrowse/Store/SeqFeature/NCList'+( trackConfig.backendVersion == 0 ? '_v0' : '' )  :
                         /\.bam$/i.test( urlTemplate )         ? 'JBrowse/Store/SeqFeature/BAM'                                                      :
                         /\.(bw|bigwig)$/i.test( urlTemplate ) ? 'JBrowse/Store/SeqFeature/BigWig'                                                   :
-                        /\/Sequence$/.test( trackClassName )  ? 'JBrowse/Store/Sequence/StaticChunked'                                              :
+                        /\/Sequence$/.test(trackConfig.type)  ? 'JBrowse/Store/Sequence/StaticChunked'                                              :
                                                                  null
                 );
 
                 if( ! storeClass ) {
-                    console.error( "Unable to determine an appropriate data store to use with track '"
+                    console.warn( "Unable to determine an appropriate data store to use with track '"
                                    + trackConfig.label + "', please explicitly specify a "
                                    + "storeClass in the configuration." );
                     return;
@@ -174,20 +234,16 @@ return declare('JBrowse.ConfigAdaptor.JB_json_v1',null,
 
                 // if this is the first sequence store we see, and we
                 // have no refseqs store defined explicitly, make this the refseqs store.
-                if( storeClass == 'JBrowse/Store/Sequence/StaticChunked' && !conf.stores['refseqs'] )
+                if( storeClass == 'JBrowse/Store/Sequence/StaticChunked' && !mainconf.stores['refseqs'] )
                     storeConf.name = 'refseqs';
                 else
                     storeConf.name = 'store'+digest.objectFingerprint( storeConf );
 
                 // record it
-                conf.stores[storeConf.name] = storeConf;
+                mainconf.stores[storeConf.name] = storeConf;
 
                 // connect it to the track conf
                 trackConfig.store = storeConf.name;
-
-            }, this);
-
-            return conf;
         },
 
         _regularizeClass: function( root, class_ ) {

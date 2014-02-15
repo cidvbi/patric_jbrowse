@@ -11,14 +11,18 @@ define( [
             'dojo/dom-construct',
             'dojo/Deferred',
             'dojo/on',
+
             'JBrowse/has',
+            'JBrowse/Util',
             'JBrowse/View/GranularRectLayout',
             'JBrowse/View/Track/BlockBased',
             'JBrowse/View/Track/_ExportMixin',
             'JBrowse/Errors',
             'JBrowse/View/Track/_FeatureDetailMixin',
             'JBrowse/View/Track/_FeatureContextMenusMixin',
-            'JBrowse/Model/Location'
+            'JBrowse/View/Track/_YScaleMixin',
+            'JBrowse/Model/Location',
+            'JBrowse/Model/SimpleFeature'
         ],
         function(
             declare,
@@ -29,14 +33,18 @@ define( [
             domConstruct,
             Deferred,
             on,
+
             has,
+            Util,
             Layout,
             BlockBasedTrack,
             ExportMixin,
             Errors,
             FeatureDetailMixin,
             FeatureContextMenuMixin,
-            Location
+            YScaleMixin,
+            Location,
+            SimpleFeature
         ) {
 
 /**
@@ -81,7 +89,13 @@ var FRectIndex = declare( null,  {
     }
 });
 
-return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMenuMixin], {
+return declare(
+    [ BlockBasedTrack,
+      FeatureDetailMixin,
+      ExportMixin,
+      FeatureContextMenuMixin,
+      YScaleMixin
+    ], {
 
     constructor: function( args ) {
         this.glyphsLoaded = {};
@@ -95,8 +109,10 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
     },
 
     _defaultConfig: function() {
-        return {
-            maxFeatureScreenDensity: 400,
+        return Util.deepUpdate(
+            lang.clone( this.inherited(arguments) ),
+            {
+            maxFeatureScreenDensity: 3,
 
             // default glyph class to use
             glyph: lang.hitch( this, 'guessGlyphType' ),
@@ -108,6 +124,14 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
 
             // maximum height of the track, in pixels
             maxHeight: 600,
+
+            histograms: {
+                description: 'feature density',
+                min: 0,
+                height: 100,
+                color: 'goldenrod',
+                clip_marker_color: 'red'
+            },
 
             style: {
                 // not configured by users
@@ -150,7 +174,7 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
                   iconClass: 'dijitIconFilter'
                 }
             ]
-        };
+        });
     },
 
     setViewInfo: function( genomeView, heightUpdate, numBlocks, trackDiv, widthPct, widthPx, scale ) {
@@ -178,12 +202,12 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
             return;
         }
 
-        var fill = dojo.hitch( this, function( stats ) {
+        var fill = lang.hitch( this, function( stats ) {
 
                 // calculate some additional view parameters that
                 // might depend on the feature stats and add them to
                 // the view args we pass down
-                var renderHints = dojo.mixin(
+                var renderArgs = lang.mixin(
                     {
                         stats: stats,
                         displayMode: this.displayMode,
@@ -199,10 +223,16 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
                     args
                 );
 
-                if( renderHints.showFeatures ) {
-                    this.fillFeatures( dojo.mixin( renderHints, args ) );
+                if( renderArgs.showFeatures ) {
+                    this.setLabel( this.key );
+                    this.removeYScale();
+                    this.fillFeatures( renderArgs );
+                }
+                else if( this.config.histograms.store || this.store.getRegionFeatureDensities ) {
+                    this.fillHistograms( renderArgs );
                 }
                 else {
+                    this.setLabel( this.key );
                     this.fillTooManyFeaturesMessage(
                         blockIndex,
                         block,
@@ -219,6 +249,20 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
                             args.finishCallback(e);
                         })
         );
+    },
+
+    // override the base error handler to try to draw histograms if
+    // it's a data overflow error and we know how to draw histograms
+    _handleError: function( error, viewArgs ) {
+
+        if( typeof error == 'object'
+            && error instanceof Errors.DataOverflow
+            && ( this.config.histograms.store || this.store.getRegionFeatureDensities )
+          ) {
+              this.fillHistograms( viewArgs );
+        }
+        else
+            this.inherited(arguments);
     },
 
     // create the layout if we need to, and if we can
@@ -273,6 +317,156 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
 
                      });
         }
+    },
+
+    fillHistograms: function( args ) {
+        // set the track label if we have a description
+        if( this.config.histograms.description ) {
+            this.setLabel(
+                this.key + ' <span class="feature-density">('
+                    + this.config.histograms.description
+                    + ')</span>'
+            );
+        }
+        else {
+            this.setLabel( this.key );
+        }
+
+        var numBins = this.config.histograms.binsPerBlock || 200;
+        var blockSizeBp = Math.abs( args.rightBase - args.leftBase );
+        var basesPerBin = blockSizeBp / numBins;
+        var query = {
+            ref:   this.refSeq.name,
+            start: args.leftBase,
+            end:   args.rightBase,
+            basesPerSpan: basesPerBin,
+            basesPerBin: basesPerBin
+        };
+
+        if( this.store.getRegionFeatureDensities ) {
+            this.store.getRegionFeatureDensities(
+                query,
+                lang.hitch( this, '_drawHistograms', args )
+            );
+        } else {
+            var thisB = this;
+            var histData = { features: [], stats: {} };
+            var handleError = lang.hitch( this, '_handleError' );
+            this.browser.getStore(
+                this.config.histograms.store,
+                function( histStore ) {
+                    histStore.getGlobalStats(
+                        function( stats ) {
+                            histData.stats.max = stats.scoreMax;
+                            histStore.getFeatures(
+                                query,
+                                function( feature ) {
+                                    histData.features.push( feature );
+                                },
+                                function() {
+                                    thisB._drawHistograms( args, histData );
+                                    args.finishCallback();
+                                },
+                                handleError
+                            );
+                        },
+                        handleError
+                    );
+                });
+        }
+    },
+
+    _drawHistograms: function( viewArgs, histData ) {
+
+        var maxScore = 'max' in this.config.histograms ? this.config.histograms.max : histData.stats.max;
+
+        // don't do anything if we don't know the score max
+        if( maxScore === undefined ) {
+            console.warn( 'no stats.max in hist data, not drawing histogram for block '+viewArgs.blockIndex );
+            return;
+        }
+
+        // don't do anything if we have no hist features
+        var features;
+        if(!( ( features = histData.features )
+              || histData.bins && ( features = this._histBinsToFeatures( viewArgs, histData ) )
+            ))
+            return;
+
+        var block = viewArgs.block;
+        var height = this.config.histograms.height;
+        var scale = viewArgs.scale;
+        var leftBase = viewArgs.leftBase;
+        var minVal = this.config.histograms.min;
+
+        domConstruct.empty( block.domNode );
+        var c = block.featureCanvas =
+            domConstruct.create(
+                'canvas',
+                { height: height,
+                  width:  block.domNode.offsetWidth+1,
+                  style: {
+                      cursor: 'default',
+                      height: height+'px',
+                      position: 'absolute'
+                  },
+                  innerHTML: 'Your web browser cannot display this type of track.',
+                  className: 'canvas-track canvas-track-histograms'
+                },
+                block.domNode
+            );
+        this.heightUpdate( height, viewArgs.blockIndex );
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = this.config.histograms.color;
+        for( var i = 0; i<features.length; i++ ) {
+            var feature = features[i];
+            var barHeight = feature.get('score')/maxScore * height;
+            var barWidth = Math.ceil( ( feature.get('end')-feature.get('start') )*scale );
+            var barLeft = Math.round(( feature.get('start') - leftBase )*scale );
+            ctx.fillRect(
+                barLeft,
+                height-barHeight,
+                barWidth,
+                barHeight
+            );
+            if( barHeight > height ) {
+                ctx.fillStyle = this.config.histograms.clip_marker_color;
+                ctx.fillRect( barLeft, 0, barWidth, 3 );
+                ctx.fillStyle = this.config.histograms.color;
+            }
+        }
+
+        // make the y-axis scale for our histograms
+        this.makeHistogramYScale( height, minVal, maxScore );
+    },
+
+    _histBinsToFeatures: function( viewArgs, histData ) {
+        var bpPerBin = parseFloat( histData.stats.basesPerBin );
+        var leftBase = viewArgs.leftBase;
+
+        return array.map(
+            histData.bins,
+            function( bin, i ) {
+                return new SimpleFeature(
+                    { data: {
+                          start: leftBase + i*bpPerBin,
+                          end: leftBase + (i+1)*bpPerBin,
+                          score: bin
+                      }});
+            });
+    },
+
+
+    makeHistogramYScale: function( height, minVal, maxVal ) {
+        if( this.yscale_params
+            && this.yscale_params.height == height
+            && this.yscale_params.max == maxVal
+            && this.yscale_params.min == minVal
+          )
+            return;
+
+        this.yscale_params = { height: height, min: minVal, max: maxVal };
+        this.makeYScale({ min: minVal, max: maxVal });
     },
 
     fillFeatures: function( args ) {
@@ -589,7 +783,7 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
             if( ! context )
                 return;
 
-            if( this.lastMouseover ) {
+            if( this.lastMouseover && block.fRectIndex ) {
                 var r = block.fRectIndex.getByID( this.lastMouseover.id() );
                 if( r )
                     this.renderFeature( context, r );
@@ -599,7 +793,7 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
                 window.clearTimeout( block.tooltipTimeout );
 
             if( feature ) {
-                var fRect = block.fRectIndex.getByID( feature.id() );
+                var fRect = block.fRectIndex && block.fRectIndex.getByID( feature.id() );
                 if( ! fRect )
                     return;
 
@@ -619,17 +813,26 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
                         }
                         this.ignoreTooltipTimeout = true;
                         this.labelTooltip.style.display = 'block';
+                        var labelSpan = this.labelTooltip.childNodes[0],
+                            descriptionSpan = this.labelTooltip.childNodes[1];
                         if( label ) {
-                            var labelSpan = this.labelTooltip.childNodes[0];
+                            labelSpan.style.display = 'block';
                             labelSpan.style.font = label.font;
                             labelSpan.style.color = label.fill;
                             labelSpan.innerHTML = label.text;
+                        } else {
+                            labelSpan.style.display = 'none';
+                            labelSpan.innerHTML = '(no label)';
                         }
                         if( description ) {
-                            var descriptionSpan = this.labelTooltip.childNodes[1];
+                            descriptionSpan.style.display = 'block';
                             descriptionSpan.style.font = description.font;
                             descriptionSpan.style.color = description.fill;
                             descriptionSpan.innerHTML = description.text;
+                        }
+                        else {
+                            descriptionSpan.style.display = 'none';
+                            descriptionSpan.innerHTML = '(no description)';
                         }
                     });
                     if( this.ignoreTooltipTimeout )
@@ -719,6 +922,8 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
     updateStaticElements: function( coords ) {
         this.inherited( arguments );
 
+        this.updateYScaleFromViewDimensions( coords );
+
         if( coords.hasOwnProperty("x") ) {
             var context = this.staticCanvas.getContext('2d');
 
@@ -750,7 +955,8 @@ return declare( [BlockBasedTrack,FeatureDetailMixin,ExportMixin,FeatureContextMe
 
     heightUpdate: function( height, blockIndex ) {
         this.inherited( arguments );
-        this.staticCanvas.height = this.staticCanvas.offsetHeight;
+        if( this.staticCanvas )
+            this.staticCanvas.height = this.staticCanvas.offsetHeight;
     },
 
     destroy: function() {

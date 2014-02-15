@@ -35,6 +35,7 @@ flatfile-to-json.pl - format data into JBrowse JSON format from an annotation fi
       [ --compress ]                                                          \
       [ --sortMem <memory in bytes to use for sorting> ]                      \
       [ --maxLookback <maximum number of features to buffer in gff3 files> ]  \
+      [ --nameAttributes "name,alias,id" ]                                    \
 
 =head1 ARGUMENTS
 
@@ -78,12 +79,16 @@ Output directory to write to.  Defaults to "data/".
 
 =item --trackType JBrowse/View/Track/HTMLFeatures
 
-Optional JavaScript class to use to display this track.  Defaults to
-JBrowse/View/Track/HTMLFeatures.
+Optional JavaScript class to use to display this track.  For backward
+compatibility, this defaults to "HTMLFeatures".
+
+Unless you have some reason to use HTMLFeatures tracks, though, it's
+recommended to set this to "CanvasFeatures" to use the newer
+canvas-based feature track type.
 
 =item --className <CSS class name for displaying features>
 
-CSS class for features.  Defaults to "feature".
+CSS class for features.  Defaults to "feature".  Only used by HTMLFeatures tracks.
 
 =item --urltemplate "http://example.com/idlookup?id={id}"
 
@@ -91,11 +96,11 @@ Template for a URL to be visited when features are clicked on.
 
 =item --noSubfeatures
 
-Do not format subfeature data.
+Do not format subfeature data.  Only include top-level features.
 
 =item --arrowheadClass <CSS class>
 
-CSS class for arrowheads.
+CSS class for arrowheads.  Only used by HTMLFeatures tracks.
 
 =item --subfeatureClasses '{ JSON-format subfeature class map }'
 
@@ -103,11 +108,19 @@ CSS classes for each subfeature type, in JSON syntax.  Example:
 
   --subfeatureClasses '{"CDS": "transcript-CDS", "exon": "transcript-exon"}'
 
+Only used by HTMLFeatures tracks.
+
 =item --clientConfig '{ JSON-format extra configuration for this track }'
 
 Extra configuration for the client, in JSON syntax.  Example:
 
   --clientConfig '{"featureCss": "background-color: #668; height: 8px;", "histScale": 2}'
+
+=item --metadata '{ JSON metadata }'
+
+Metadata about this track.  Example:
+
+  --metadata '{"description": "Genes from XYZ pipeline.", "category": "Transcripts" }'
 
 =item --type <feature types to process>
 
@@ -119,6 +132,12 @@ a source of "exonerate".
 
 Multiple type names can be specified by separating the type names with
 commas, e.g. C<--type mRNA:exonerate,ncRNA>.
+
+=item --nameAttributes "name,alias,id"
+
+Comma-separated list of feature attributes (a.k.a. tags) that should
+be treated as names for this features.  Case insensitive.  Defaults to
+"name,alias,id".
 
 =item --nclChunk <chunk size for generated NCLs>
 
@@ -136,6 +155,10 @@ additional configuration to serve these correctly.
 
 Bytes of RAM to use for sorting features.  Default 512MB.
 
+The JSON NCList generation has to sort the features by reference
+sequence, start coordinate, and end coordinate.  This is how much RAM
+in bytes the sorting process is allowed to use.
+
 =back
 
 =head2 GFF3-specific
@@ -145,9 +168,12 @@ Bytes of RAM to use for sorting features.  Default 512MB.
 =item --maxLookback <integer>
 
 Maximum number of features to keep in memory when parsing GFF3 files.
+Defaults to 10000.
+
 If you receive "orphan features" errors when parsing a GFF3 file that
-contains few '###' directives (which are important for parsing), you
-can try setting this higher if your machine has enough memory.
+doesn't contain enough '###' directives (which are important for
+parsing), you can try setting this higher if your machine has enough
+memory.
 
 =back
 

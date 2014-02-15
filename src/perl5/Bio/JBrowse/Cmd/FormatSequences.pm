@@ -73,7 +73,6 @@ sub run {
         my $gff = $self->opt('gff');
         my $gzip = '';
         if( $gff =~ /\.gz$/ ) {
-            require PerlIO::gzip;
             $gzip = ':gzip';
         }
         open my $fh, "<$gzip", $gff or die "$! reading GFF file $gff";
@@ -163,7 +162,6 @@ sub exportFASTA {
     my %refSeqs;
     for my $fasta ( @$files ) {
         my $gzip = $fasta =~ /\.gz(ip)?$/i ? ':gzip' : '';
-        require PerlIO::gzip if $gzip;
 
         my $fasta_fh;
         if( ref $fasta ) {
@@ -335,6 +333,8 @@ sub writeTrackEntry {
 
     my $seqTrackName = $self->trackLabel;
     unless( $self->opt('noseq') ) {
+        $self->{storage}->touch( 'tracks.conf' );
+
         $self->{storage}->modify( 'trackList.json',
                                        sub {
                                            my $trackList = shift;
@@ -357,6 +357,7 @@ sub writeTrackEntry {
                                            'label' => $seqTrackName,
                                            'key' => $self->opt('key') || 'Reference sequence',
                                            'type' => "SequenceTrack",
+                                           'category' => "Reference sequence",
                                            'storeClass' => 'JBrowse/Store/Sequence/StaticChunked',
                                            'chunkSize' => $self->{chunkSize},
                                            'urlTemplate' => $self->seqUrlTemplate,

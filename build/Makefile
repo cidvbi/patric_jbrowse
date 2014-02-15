@@ -4,6 +4,8 @@ JSDIR = $(BASEDIR)/src/JBrowse
 PLUGINDIR = $(BASEDIR)/plugins
 JS_SRCFILES = $(shell find $(JSDIR)/ -type f -and -name '*.js')
 
+CSS_SRCFILES = $(shell find $(BASEDIR)/ -type f -and -name '*.css')
+
 RELEASE_VERSION = $(shell node -e 'require("fs").readFile("$(JSDIR)/package.json", function(e,d){console.log(JSON.parse(d).version)})')
 RELEASE_NAME = JBrowse-$(RELEASE_VERSION)
 RELEASE_FULL = $(RELEASE_NAME)-dev
@@ -14,9 +16,13 @@ RELEASE_MIN_DIR  = $(BASEDIR)/$(RELEASE_MIN)/
 ZIP=zip -q --symlinks -r
 UNZIP=unzip -q
 
+
 all: docs bin/wig2png
 
-release: release-normal release-min release-normal-test release-min-test release-notes.html
+release-version.txt:
+	echo $(RELEASE_VERSION) > release-version.txt
+
+release: release-version.txt release-normal release-min release-normal-test release-min-test release-notes.html
 	ls -lh *.zip
 	sha1sum *.zip
 
@@ -27,8 +33,6 @@ release-normal: superclean $(JS_SRCFILES)
 	mkdir $(RELEASE_FULL_DIR);
 	cp -r `ls -1d * | grep -v $(RELEASE_FULL)` $(RELEASE_FULL_DIR);
 	rm -rf $(RELEASE_FULL_DIR)/src/*/.git $(RELEASE_FULL_DIR)/$(RELEASE_FULL) $(RELEASE_FULL_DIR)/src/util $(RELEASE_FULL_DIR)/build;
-
-	mv $(RELEASE_FULL_DIR)/src/dojo/nls $(RELEASE_FULL_DIR)/src/nls;
 
         # version-stamp Browser.js
 	perl -i -pE 's!(?<=BUILD_SYSTEM_JBROWSE_VERSION);! = "$(RELEASE_VERSION)";!' $(JSDIR)/Browser.js;
@@ -52,7 +56,6 @@ release-normal-test: release-normal
 PLUGINS = $(wildcard $(PLUGINDIR)/*)
 
 plugins-min: release-normal
-#	( for pdir in $(PLUGINS); do pname=`basename $$pdir`; node $(BASEDIR)/src/dojo/dojo.js load=build --require "$(JSDIR)/init.js" --profile "$$pdir/js/$$pname" --releaseDir "$(RELEASE_FULL_DIR)/plugins/$$pname/built"; mv "$(RELEASE_FULL_DIR)/plugins/$$pname/built/$$pname $(RELEASE_FULL_DIR)/plugins/$$pname/js"; rm -rf "$(RELEASE_FULL_DIR)/plugins/$$pname/built"; done )
 	for pdir in $(PLUGINS); do  \
 		pname=`basename $$pdir`; \
 		node $(BASEDIR)/src/dojo/dojo.js load=build \

@@ -3,12 +3,16 @@
 require([
             'JBrowse/Browser',
             'JBrowse/ConfigAdaptor/JB_json_v1',
-            'JBrowse/View/TrackList/Simple',
+
+            // default tracklist view
+            'JBrowse/View/TrackList/Hierarchical',
 
             // common stores
             'JBrowse/Store/Sequence/StaticChunked',
             'JBrowse/Store/SeqFeature/NCList',
             'JBrowse/Store/TiledImage/Fixed',
+            'JBrowse/Store/Names/Hash',
+            'JBrowse/Store/Names/REST',
 
             // common track views
             'JBrowse/View/Track/Sequence',
@@ -23,7 +27,6 @@ require([
             'JBrowse/View/Track/SNPCoverage',
 
             // track lists
-            'JBrowse/View/TrackList/Simple',
             'JBrowse/Store/TrackMetaData',
 
             'xstyle/load-css',

@@ -18,13 +18,12 @@ class JBrowseTest (object):
     data_dir = None
     base_url = None
 
-    tracksel_type = 'Simple'
+    tracksel_type = 'Hierarchical'
 
     ## TestCase override - use instead of constructor
     def setUp( self ):
 
         self.track_selector = getattr( track_selectors, '%sTrackSelector' % self.tracksel_type )( self )
-
 
         fp = webdriver.FirefoxProfile()
 
@@ -32,16 +31,16 @@ class JBrowseTest (object):
         fp.set_preference("browser.download.manager.showWhenStarting",False)
         fp.set_preference("browser.download.dir", os.getcwd())
         fp.set_preference("browser.helperApps.neverAsk.saveToDisk","application/x-bedgraph,application/x-wiggle,application/x-bed")
-
         self.browser = webdriver.Firefox( firefox_profile = fp )
-
-        base = self.baseURL()
-        self.browser.get(
-            base + ( '&' if base.find('?') >= 0 else '?' )
-            + ( "data="+self.data_dir if self.data_dir else "" )
-        )
-        
-        self._waits_for_JBrowse_to_load()
+        if self.base_url and self.data_dir: self.browser.get(self.base_url+self.data_dir)
+        else: 
+            base = self.baseURL()
+            self.browser.get(
+                base + ( '&' if base.find('?') >= 0 else '?' )
+                + ( "data="+self.data_dir if self.data_dir else "" )
+            )
+        self.addCleanup(self.browser.quit)
+        self._waits_for_load()
 
     def baseURL( self ):
         if not self.base_url:
@@ -51,8 +50,8 @@ class JBrowseTest (object):
 
     ## convenience methods for us
 
-    def assert_element( self, expression ):
-        self._waits_for_element( expression )
+    def assert_element( self, expression , time=5):
+        self._waits_for_element( expression, time )
         try:
             if expression.find('/') >= 0:
                 el = self.browser.find_element_by_xpath( expression )
@@ -84,12 +83,11 @@ class JBrowseTest (object):
         assert self.browser.find_element_by_xpath('/html/body') \
                       .get_attribute('JSError') == None
 
+    # Find the query box and put f15 into it and hit enter
     def do_typed_query( self, text ):
-        # Find the query box and put f15 into it and hit enter
         qbox = self.browser.find_element_by_id("location")
-        qbox.send_keys( Keys.BACK_SPACE * 40 )
-        for i in range( len(text) ):
-            qbox.send_keys( text[i] )
+        qbox.clear()
+        qbox.send_keys( text )
         qbox.send_keys( Keys.RETURN )
 
     def _rubberband( self, el_xpath, start_pct, end_pct, modkey = None ):
@@ -178,12 +176,21 @@ class JBrowseTest (object):
     def _waits_for_elements( self, expression ):
         WebDriverWait(self, 5).until(lambda self: self.do_elements_exist(expression))
 
-    def _waits_for_element( self, expression ):
-        WebDriverWait(self, 5).until(lambda self: self.does_element_exist(expression))
+    def _waits_for_element( self, expression, time=5 ):
+        WebDriverWait(self, time).until(lambda self: self.does_element_exist(expression))
 
     def _waits_for_no_element( self, expression ):
         WebDriverWait(self, 5).until(lambda self: not self.does_element_exist(expression))
+    
+    # Wait until faceted browser has narrowed results to one track
+    def wait_until_one_track(self):
+        WebDriverWait(self, 5).until(lambda self: self.is_one_row())
 
+    # Return true/false if faceted browser narrowed down to one track
+    def is_one_row(self):
+        return self.assert_elements("div.dojoxGridRow").__len__() == 1
+
+    # Return true/false if element exists
     def does_element_exist (self, expression):
         try:
             if expression.find('/') >= 0:
@@ -193,7 +200,8 @@ class JBrowseTest (object):
             return True
         except NoSuchElementException:
             return False
-   
+
+    # Return true/false if elements exist
     def do_elements_exist (self, expression):
         try:
             if expression.find('/') >= 0:
@@ -210,10 +218,10 @@ class JBrowseTest (object):
     def scroll( self ):
         move_right_button = self.browser.find_element_by_id('moveRight')
         move_right_button.click()
-        self._waits_for_scroll(self.browser.title)
+        self.waits_for_scroll(self.browser.title)
         move_left_button = self.browser.find_element_by_id('moveLeft')
         move_left_button.click()
-        self._waits_for_scroll(self.browser.title)
+        self.waits_for_scroll(self.browser.title)
 
         self.assert_no_js_errors()
 
@@ -234,15 +242,19 @@ class JBrowseTest (object):
 
     # waits for the title of the page to change, since it 
     # gets updated after the scroll animation
-    def _waits_for_scroll ( self, location ):
+    def waits_for_scroll ( self, location ):
         WebDriverWait(self, 5).until(lambda self: self.browser.title != location)
+    
 
-    def _waits_for_JBrowse_to_load(self):
-        WebDriverWait(self, 5).until(lambda self: self.browser.current_url.find("data=") >= 0)
-        if self.browser.current_url.find("data=nonexistent"):
+    #Exists because onload() get trigered before JBrowse is ready
+    def _waits_for_load(self):
+        WebDriverWait(self, 5).until(lambda self: self.browser.current_url.find("data=") >= 0 or self.browser.current_url.find("js_tests") >= 0)
+        if self.browser.current_url.find("data=nonexistent"): #account for the test for bad data
+            pass
+        elif self.browser.current_url.find("js_tests"): #account for jasmine tests
             pass
         else:
             # Page title is initially "JBrowse",
             # so wait for it to change
-            self._waits_for_scroll("JBrowse")
+            self.waits_for_scroll("JBrowse")
 

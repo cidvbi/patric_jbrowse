@@ -46,15 +46,15 @@ echo -n "Formatting Volvox example data ...";
     rm -rf sample_data/json/volvox;
     bin/prepare-refseqs.pl --fasta docs/tutorial/data_files/volvox.fa --out sample_data/json/volvox;
     bin/biodb-to-json.pl -v --conf docs/tutorial/conf_files/volvox.json --out sample_data/json/volvox;
-    bin/add-track-json.pl docs/tutorial/data_files/volvox_microarray.bw.conf sample_data/json/volvox/trackList.json
-    bin/add-track-json.pl docs/tutorial/data_files/volvox_sine.bw.conf sample_data/json/volvox/trackList.json
-    bin/add-track-json.pl docs/tutorial/data_files/volvox-sorted.bam.conf sample_data/json/volvox/trackList.json
-    bin/add-track-json.pl docs/tutorial/data_files/volvox-sorted.bam.coverage.conf sample_data/json/volvox/trackList.json
-    bin/add-track-json.pl docs/tutorial/data_files/volvox.vcf.conf sample_data/json/volvox/trackList.json
-    bin/add-track-json.pl docs/tutorial/data_files/volvox_fromconfig.conf sample_data/json/volvox/trackList.json
-    bin/add-track-json.pl docs/tutorial/data_files/volvox.gff3.conf sample_data/json/volvox/trackList.json
-    bin/add-json.pl '{ "dataset_id": "volvox" }' sample_data/json/volvox/trackList.json
-    bin/generate-names.pl -v --out sample_data/json/volvox;
+    cat docs/tutorial/data_files/volvox_microarray.bw.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox_sine.bw.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox-sorted.bam.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox-sorted.bam.coverage.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox.vcf.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox_fromconfig.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox.gff3.conf >> sample_data/json/volvox/tracks.conf
+    bin/add-json.pl '{ "dataset_id": "volvox", "include": [ "../../raw/volvox/functions.conf" ] }' sample_data/json/volvox/trackList.json
+    bin/generate-names.pl --safeMode -v --out sample_data/json/volvox;
 
     # also recreate some symlinks used by tests and such
     if [ -d sample_data/json/modencode ]; then
@@ -97,9 +97,9 @@ echo -n "Building and installing legacy wiggle format support (superseded by Big
         cd ../..;
     fi
     set -x;
-    bin/wig-to-json.pl --key 'Image - volvox_microarray.wig' --wig docs/tutorial/data_files/volvox_microarray.wig --out sample_data/json/volvox;
+    bin/wig-to-json.pl --key 'Image - volvox_microarray.wig' --wig docs/tutorial/data_files/volvox_microarray.wig --category "Pre-generated images" --out sample_data/json/volvox;
 ) >>setup.log 2>&1
-done_message "" "Make sure libpng development libraries and header files are installed.";
+done_message "" "If you really need wig-to-json.pl (most users don't), make sure libpng development libraries and header files are installed and try running setup.sh again.";
 
 echo
 echo -n "Building and installing legacy bam-to-json.pl support (superseded by direct BAM tracks) ...";
@@ -114,7 +114,11 @@ echo -n "Building and installing legacy bam-to-json.pl support (superseded by di
             set -x;
 
             if [ ! -e samtools-master ]; then
-                wget -O samtools-master.zip https://github.com/samtools/samtools/archive/master.zip;
+                if hash curl 2>/dev/null; then
+                    curl -L https://github.com/samtools/samtools/archive/master.zip -o samtools-master.zip;
+                else
+                    wget -O samtools-master.zip https://github.com/samtools/samtools/archive/master.zip;
+                fi
                 unzip -o samtools-master.zip;
                 rm samtools-master.zip;
                 perl -i -pe 's/^CFLAGS=\s*/CFLAGS=-fPIC / unless /\b-fPIC\b/' samtools-master/Makefile;
@@ -129,6 +133,6 @@ echo -n "Building and installing legacy bam-to-json.pl support (superseded by di
         bin/cpanm -v -l extlib Bio::DB::Sam;
     fi
 
-    bin/bam-to-json.pl --bam docs/tutorial/data_files/volvox-sorted.bam --tracklabel bam_simulated --key "Legacy BAM - volvox-sorted.bam" --cssClass basic --clientConfig '{"featureCss": "background-color: #66F; height: 8px", "histCss": "background-color: #88F"}' --out sample_data/json/volvox;
+    bin/bam-to-json.pl --bam docs/tutorial/data_files/volvox-sorted.bam --tracklabel bam_simulated --key "Legacy BAM - volvox-sorted.bam" --cssClass basic --metadata '{"category": "BAM"}' --clientConfig '{"featureCss": "background-color: #66F; height: 8px", "histCss": "background-color: #88F"}' --out sample_data/json/volvox;
 ) >>setup.log 2>&1;
-done_message "" "Try reading the Bio-SamTools troubleshooting guide at https://metacpan.org/source/LDS/Bio-SamTools-1.33/README for help getting Bio::DB::Sam installed.";
+done_message "" "If you really need bam-to-json.pl (most users don't), try reading the Bio-SamTools troubleshooting guide at https://metacpan.org/source/LDS/Bio-SamTools-1.33/README for help getting Bio::DB::Sam installed.";

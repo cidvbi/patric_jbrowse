@@ -4,15 +4,8 @@ use FindBin qw($RealBin);
 use lib "$RealBin/../src/perl5";
 use JBlibs;
 
-if( grep $_ eq '--safeMode', @ARGV ) {
-    require Bio::JBrowse::Cmd::IndexNames::BackCompat;
-    exit Bio::JBrowse::Cmd::IndexNames::BackCompat->new(@ARGV)->run;
-}
-else {
-    require Bio::JBrowse::Cmd::IndexNames;
-    exit Bio::JBrowse::Cmd::IndexNames->new(@ARGV)->run;
-}
-
+require Bio::JBrowse::Cmd::IndexNames;
+exit Bio::JBrowse::Cmd::IndexNames->new(@ARGV)->run;
 
 __END__
 
@@ -40,6 +33,15 @@ Data directory to process.  Default 'data/'.
 Comma-separated list of which tracks to include in the names index.  If
 not passed, all tracks are indexed.
 
+=item --compress
+
+If passed, gzip the JSON files in the index, naming them *.jsonz
+instead of *.json.  Like the --compress option for flatfile-to-json.pl
+and prepare-refseqs.pl, if you use this option you must configure your
+web server to serve these files with the correct Content-Encoding HTTP
+header.  See the JBrowse Configuration Guide on the GMOD wiki for help
+with this.
+
 =item --incremental | -i
 
 Do not completely rebuild the names index in the given location, only
@@ -52,9 +54,8 @@ Maximum number of distinct locations to store for a single name.  Default 100.
 =item --mem <bytes>
 
 Number of bytes of RAM we are allowed to use for caching memory.
-Default 256000000 (256 MiB).  If you machine has enough RAM,
-increasing this amount can speed up this script's running time
-significantly.
+Default 256000000 (256 MiB).  If your machine has enough RAM,
+increasing this can speed up this script's running time significantly.
 
 =item --workdir <dir>
 
@@ -75,15 +76,6 @@ Default 20.  Set to 0 to disable auto-completion of feature names.
 Note that the name index always contains exact matches for feature
 names; this setting only disables autocompletion based on incomplete
 names.
-
-=item --safeMode
-
-Run the indexer in "safe" mode, not using any performance
-optimizations.  Beware, the indexer is much slower when running in
-safe mode.  If the indexer runs incorrectly for you without this
-option, please email the the gmod-ajax mailing list.  We are still
-trying to characterize exactly which installations are problems
-having.
 
 =item --verbose
 

@@ -37,6 +37,7 @@ define( [
             'JBrowse/View/LocationChoiceDialog',
             'JBrowse/View/Dialog/SetHighlight',
             'JBrowse/View/Dialog/QuickHelp',
+            'JBrowse/View/StandaloneDatasetList',
             'dijit/focus',
             'lazyload', // for dynamic CSS loading
             'dojo/domReady!'
@@ -67,7 +68,7 @@ define( [
             LazyTrie,
             NamesLazyTrieDojoDataStore,
             DojoDataStore,
-            NamesHashStore,
+			NamesHashStore,
             FeatureFiltererMixin,
             GenomeView,
             Touch,
@@ -78,6 +79,7 @@ define( [
             LocationChoiceDialog,
             SetHighlightDialog,
             HelpDialog,
+            StandaloneDatasetList,
             dijitFocus,
             LazyLoad
         ) {
@@ -110,7 +112,7 @@ return declare( FeatureFiltererMixin, {
 constructor: function(params) {
     this.globalKeyboardShortcuts = {};
 
-    this.config = params;
+    this.config = params || {};
 
     // if we're in the unit tests, stop here and don't do any more initialization
     if( this.config.unitTestMode )
@@ -121,13 +123,13 @@ constructor: function(params) {
 
     this.startTime = new Date();
 
-    this.container = dojo.byId( this.config.containerID );
-    this.container.onselectstart = function() { return false; };
-
     // start the initialization process
     var thisB = this;
     dojo.addOnLoad( function() {
         thisB.loadConfig().then( function() {
+
+            thisB.container = dojo.byId( thisB.config.containerID );
+            thisB.container.onselectstart = function() { return false; };
 
             // initialize our highlight if one was set in the config
             if( thisB.config.initialHighlight )
@@ -219,7 +221,7 @@ getPlugin: function( name, callback ) {
 },
 
 _corePlugins: function() {
-    return ['RegexSequenceSearch'];
+    return [ 'RegexSequenceSearch' ];
 },
 
 /**
@@ -228,18 +230,37 @@ _corePlugins: function() {
 initPlugins: function() {
     return this._milestoneFunction( 'initPlugins', function( deferred ) {
         this.plugins = {};
-        var plugins = this._corePlugins();
-        plugins.push.apply( plugins, this.config.plugins || this.config.Plugins || [] );
+
+        var plugins = this.config.plugins || this.config.Plugins || {};
+
+        // coerce plugins to array of objects
+        if( ! lang.isArray(plugins) && ! plugins.name ) {
+            // plugins like  { Foo: {...}, Bar: {...} }
+            plugins = function() {
+                var newplugins = [];
+                for( var pname in plugins ) {
+                    if( !( 'name' in plugins[pname] ) ) {
+                        plugins[pname].name = pname;
+                    }
+                    newplugins.push( plugins[pname] );
+                }
+                return newplugins;
+            }.call(this);
+        }
+        if( ! lang.isArray( plugins ) )
+            plugins = [ plugins ];
+
+        plugins.unshift.apply( plugins, this._corePlugins() );
+
+        // coerce string plugin names to {name: 'Name'}
+        plugins = array.map( plugins, function( p ) {
+            return typeof p == 'object' ? p : { 'name': p };
+        });
 
         if( ! plugins ) {
             deferred.resolve({success: true});
             return;
         }
-
-        // coerce plugins to array of objects
-        plugins = array.map( lang.isArray( plugins ) ? plugins : [plugins], function( p ) {
-            return typeof p == 'object' ? p : { 'name': p };
-        });
 
         // set default locations for each plugin
         array.forEach( plugins, function(p) {
@@ -326,53 +347,68 @@ resolveUrl: function( url ) {
 },
 
 /**
- * Displays links to configuration help in the main window.  Called
- * when the main browser cannot run at all, due to configuration
- * errors or whatever.
+ * Main error handler.  Displays links to configuration help or a
+ * dataset selector in the main window.  Called when the main browser
+ * cannot run at all, because of configuration errors or whatever.
  */
 fatalError: function( error ) {
-    if( error ) {
-        error = error+'';
-        if( ! /\.$/.exec(error) )
-            error = error + '.';
+
+    function formatError(error) {
+        if( error ) {
+            console.error( error.stack || ''+error );
+            error = error+'';
+            if( ! /\.$/.exec(error) )
+                error = error + '.';
+        }
+        return error;
     }
-    if( ! this.hasFatalErrors ) {
-        var container =
-            dojo.byId(this.config.containerID || 'GenomeBrowser')
-            || document.body;
-		/*
-        container.innerHTML = ''
-            + '<div class="fatal_error">'
-            + '  <h1>Congratulations, JBrowse is on the web!</h1>'
-            + "  <p>However, JBrowse could not start, either because it has not yet been configured"
-            + "     and loaded with data, or because of an error.</p>"
-            + "  <p style=\"font-size: 110%; font-weight: bold\">If this is your first time running JBrowse, <a title=\"View the tutorial\" href=\"docs/tutorial/\" target=\"_blank\">click here to follow the Quick-start Tutorial to show your data in JBrowse.</a></p>"
-            + '  <p id="volvox_data_placeholder"></p>'
-            + "  <p>Otherwise, please refer to the following resources for help in setting up JBrowse to show your data.</p>"
-            + '  <ul><li><a target="_blank" href="docs/tutorial/">Quick-start tutorial</a> - get your data visible quickly with minimum fuss</li>'
-            + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse_Configuration_Guide">JBrowse Configuration Guide</a> - a comprehensive reference</li>'
-            + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse">JBrowse wiki main page</a></li>'
-            + '      <li><a target="_blank" href="docs/config.html"><code>biodb-to-json.pl</code> configuration reference</a></li>'
-            + '      <li><a target="_blank" href="docs/featureglyphs.html">HTMLFeatures CSS class reference</a> - prepackaged styles (CSS classes) for HTMLFeatures tracks</li>'
-            + '  </ul>'
-            + '  <div id="fatal_error_list" class="errors"> <h2>Error message(s):</h2>'
-            + ( error ? '<div class="error"> '+error+'</div>' : '' )
-            + '  </div>'
-            + '</div>'
-            ;
-        request( 'sample_data/json/volvox/successfully_run' )
-        .then( function() {
-                   try {
-                       document.getElementById('volvox_data_placeholder')
-                           .innerHTML = 'However, it appears you have successfully run <code>./setup.sh</code>, so you can see the <a href="?data=sample_data/json/volvox" target="_blank">Volvox test data here</a>.';
-                   } catch(e) {}
-               });
-		*/
-		container.innerHTML = '<div class="fatal_error"><h2>Data is not available for this feature.</h2></div>';
-        this.hasFatalErrors = true;
+
+    if( ! this.renderedFatalErrors ) {
+        // if the error is just that there are no ref seqs defined,
+        // and there are datasets defined in the conf file, then just
+        // show a little HTML list of available datasets
+        if( /^Could not load reference sequence/.test( error )
+            && this.config.datasets
+            && ! this.config.datasets._DEFAULT_EXAMPLES
+          ) {
+            new StandaloneDatasetList({ datasets: this.config.datasets })
+                  .placeAt( this.container );
+        } else {
+            var container = this.container || document.body;
+			/*
+            container.innerHTML = ''
+                + '<div class="fatal_error">'
+                + '  <h1>Congratulations, JBrowse is on the web!</h1>'
+                + "  <p>However, JBrowse could not start, either because it has not yet been configured"
+                + "     and loaded with data, or because of an error.</p>"
+                + "  <p style=\"font-size: 110%; font-weight: bold\">If this is your first time running JBrowse, <a title=\"View the tutorial\" href=\"docs/tutorial/\" target=\"_blank\">click here to follow the Quick-start Tutorial to show your data in JBrowse.</a></p>"
+                + '  <p id="volvox_data_placeholder"></p>'
+                + "  <p>Otherwise, please refer to the following resources for help in setting up JBrowse to show your data.</p>"
+                + '  <ul><li><a target="_blank" href="docs/tutorial/">Quick-start tutorial</a> - get your data visible quickly with minimum fuss</li>'
+                + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse_Configuration_Guide">JBrowse Configuration Guide</a> - a comprehensive reference</li>'
+                + '      <li><a target="_blank" href="http://gmod.org/wiki/JBrowse">JBrowse wiki main page</a></li>'
+                + '      <li><a target="_blank" href="docs/config.html"><code>biodb-to-json.pl</code> configuration reference</a></li>'
+                + '      <li><a target="_blank" href="docs/featureglyphs.html">HTMLFeatures CSS class reference</a> - prepackaged styles (CSS classes) for HTMLFeatures tracks</li>'
+                + '  </ul>'
+                + '  <div id="fatal_error_list" class="errors"> <h2>Error message(s):</h2>'
+                + ( error ? '<div class="error"> '+formatError(error)+'</div>' : '' )
+                + '  </div>'
+                + '</div>'
+                ;
+            request( 'sample_data/json/volvox/successfully_run' )
+            .then( function() {
+                       try {
+                           document.getElementById('volvox_data_placeholder')
+                               .innerHTML = 'However, it appears you have successfully run <code>./setup.sh</code>, so you can see the <a href="?data=sample_data/json/volvox" target="_blank">Volvox test data here</a>.';
+                       } catch(e) {}
+                   });
+			*/
+			container.innerHTML = '<div class="fatal_error"><h2>Data is not available for this feature.</h2></div>';
+            this.renderedFatalErrors = true;
+        }
     } else {
         var errors_div = dojo.byId('fatal_error_list') || document.body;
-        dojo.create('div', { className: 'error', innerHTML: error+'' }, errors_div );
+        dojo.create('div', { className: 'error', innerHTML: formatError(error)+'' }, errors_div );
     }
 },
 
@@ -381,26 +417,17 @@ loadRefSeqs: function() {
         // load our ref seqs
         if( typeof this.config.refSeqs == 'string' )
             this.config.refSeqs = { url: this.config.refSeqs };
-        dojo.xhrGet(
-            {
-                url: this.config.refSeqs.url,
-                handleAs: 'json',
-                load: dojo.hitch( this, function(o) {
-                    this.addRefseqs( o );
-                    deferred.resolve({success:true});
-                }),
-                error: dojo.hitch( this, function(e) {
-                    this.fatalError('Failed to load reference sequence info: '+e);
-                    deferred.resolve({ success: false, error: e });
-                })
-            });
+        var thisB = this;
+        request(this.config.refSeqs.url, { handleAs: 'text' } )
+            .then( function(o) {
+                       thisB.addRefseqs( dojo.fromJson(o) );
+                       deferred.resolve({success:true});
+                   },
+                   function( e ) {
+                       deferred.reject( 'Could not load reference sequence definitions. '+e );
+                   }
+                 );
     });
-},
-
-/**
- * Event that fires when the reference sequences have been loaded.
- */
-onRefSeqsLoaded: function() {
 },
 
 loadUserCSS: function() {
@@ -456,9 +483,18 @@ loadNames: function() {
         if( conf.baseUrl )
             conf.url = Util.resolveUrl( conf.baseUrl, conf.url );
 
-        if( conf.type == 'Hash' )
-            this.nameStore = new NamesHashStore( dojo.mixin({ browser: this }, conf) );
-        else
+        var type;
+        if(( type = conf.type )) {
+            var thisB = this;
+            if( type.indexOf('/') == -1 )
+                type = 'JBrowse/Store/Names/'+type;
+            require ([type], function (CLASS){
+                thisB.nameStore = new CLASS( dojo.mixin({ browser: thisB }, conf) );
+                deferred.resolve({success: true});
+            });
+        }
+        // no name type setting, must be the legacy store
+        else {
             // wrap the older LazyTrieDojoDataStore with
             // dojo.store.DataStore to conform with the dojo/store API
             this.nameStore = new DojoDataStore({
@@ -470,8 +506,8 @@ loadNames: function() {
                     tooManyMatchesMessage: conf.tooManyMatchesMessage
                 })
             });
-
-        deferred.resolve({success: true});
+            deferred.resolve({success: true});
+        }
     });
 },
 
@@ -489,7 +525,7 @@ compareReferenceNames: function( a, b ) {
  * Regularize the reference sequence name in a location.
  */
 regularizeLocation: function( location ) {
-    var ref = this.findReferenceSequence( location.ref );
+    var ref = this.findReferenceSequence( location.ref || location.objectName );
     if( ref )
         location.ref = ref.name;
     return location;
@@ -769,7 +805,8 @@ renderDatasetSelect: function( parent ) {
     var dsconfig = this.config.datasets || {};
     var datasetChoices = [];
     for( var id in dsconfig ) {
-        datasetChoices.push( dojo.mixin({ id: id }, dsconfig[id] ) );
+        if( ! /^_/.test(id) )
+            datasetChoices.push( dojo.mixin({ id: id }, dsconfig[id] ) );
     }
 
     new dijitSelectBox(
@@ -1316,7 +1353,7 @@ _milestoneFunction: function( /**String*/ name, func ) {
         func.apply( thisB, args ) ;
     } catch(e) {
         console.error( e, e.stack );
-        d.resolve({ success:false, error: e });
+        d.reject(e);
     }
 
     return d;
@@ -1328,7 +1365,11 @@ _milestoneFunction: function( /**String*/ name, func ) {
 _getDeferred: function( name ) {
     if( ! this._deferred )
         this._deferred = {};
-    return this._deferred[name] = this._deferred[name] || new Deferred();
+    return this._deferred[name] || ( this._deferred[name] = function() {
+        var d = new Deferred();
+        d.then( null, lang.hitch( this, 'fatalError' ));
+        return d;
+    }.call(this));
 },
 /**
  * Attach a callback to a milestone.
@@ -1367,27 +1408,30 @@ reachedMilestone: function( name ) {
  */
 loadConfig: function () {
     return this._milestoneFunction( 'loadConfig', function( deferred ) {
-        var c = new ConfigManager({ config: this.config, defaults: this._configDefaults(), browser: this });
-        c.getFinalConfig( dojo.hitch(this, function( finishedConfig ) {
-                this.config = finishedConfig;
+        var c = new ConfigManager({ bootConfig: this.config, defaults: this._configDefaults(), browser: this });
+        c.getFinalConfig()
+         .then( dojo.hitch(this, function( finishedConfig ) {
+                               this.config = finishedConfig;
 
-                // pass the tracks configurations through
-                // addTrackConfigs so that it will be indexed and such
-                var tracks = finishedConfig.tracks || [];
-                delete finishedConfig.tracks;
-                this._addTrackConfigs( tracks );
+                               // pass the tracks configurations through
+                               // addTrackConfigs so that it will be indexed and such
+                               var tracks = finishedConfig.tracks || [];
+                               delete finishedConfig.tracks;
+                               this._addTrackConfigs( tracks );
 
-                // coerce some config keys to boolean
-                dojo.forEach( ['show_tracklist','show_nav','show_overview'], function(v) {
-                                  this.config[v] = this._coerceBoolean( this.config[v] );
-                              },this);
+                               // coerce some config keys to boolean
+                               dojo.forEach( ['show_tracklist','show_nav','show_overview'], function(v) {
+                                                 this.config[v] = this._coerceBoolean( this.config[v] );
+                                             },this);
 
-               // set empty tracks array if we have none
-               if( ! this.config.tracks )
-                   this.config.tracks = [];
+                               // set empty tracks array if we have none
+                               if( ! this.config.tracks )
+                                   this.config.tracks = [];
 
-                deferred.resolve({success:true});
-        }));
+                               deferred.resolve({success:true});
+                           }),
+                deferred.reject
+              );
     });
 },
 
@@ -1459,9 +1503,28 @@ _deleteTrackConfigs: function( configsToDelete ) {
 _configDefaults: function() {
     return {
         tracks: [],
+
+        containerID: 'GenomeBrowser',
+        dataRoot: 'data',
         show_tracklist: true,
         show_nav: true,
-        show_overview: true
+        show_overview: true,
+
+        refSeqs: "{dataRoot}/seq/refSeqs.json",
+        include: [
+            'jbrowse.conf',
+            'jbrowse_conf.json'
+        ],
+        nameUrl: "{dataRoot}/names/root.json",
+
+        datasets: {
+            _DEFAULT_EXAMPLES: true,
+            volvox:    { url: '?data=sample_data/json/volvox',    name: 'Volvox Example'    },
+            modencode: { url: '?data=sample_data/json/modencode', name: 'MODEncode Example' },
+            yeast:     { url: '?data=sample_data/json/yeast',     name: 'Yeast Example'     }
+        },
+
+        highlightSearchedRegions: false
     };
 },
 
@@ -1615,7 +1678,7 @@ createTrackList: function() {
         // find the tracklist class to use
         var tl_class = !this.config.show_tracklist           ? 'Null'                         :
                        (this.config.trackSelector||{}).type  ? this.config.trackSelector.type :
-                                                               'Simple';
+                                                               'Hierarchical';
         if( ! /\//.test( tl_class ) )
             tl_class = 'JBrowse/View/TrackList/'+tl_class;
 
@@ -1691,29 +1754,42 @@ showRegion: function( location ) {
  */
 
 navigateTo: function(loc) {
-    this.afterMilestone( 'initView', dojo.hitch( this, function() {
-        // if it's a foo:123..456 location, go there
-        var location = typeof loc == 'string' ? Util.parseLocString( loc ) :  loc;
-        // only call navigateToLocation() directly if location has start and end, otherwise try and fill in start/end from 'location' cookie
-        if( location && ("start" in location) && ("end" in location)) {
-            this.navigateToLocation( location );
-        }
-        // otherwise, if it's just a word (or a location with only a ref property), try to figure out what it is
-        else {
-            if( typeof loc != 'string')
-                loc = loc.ref;
+    var thisB = this;
+    this.afterMilestone( 'initView', function() {
+        // lastly, try to search our feature names for it
+        thisB.searchNames( loc )
+           .then( function( found ) {
+                      if( found )
+                          return;
 
-            // is it just the name of one of our ref seqs?
-            var ref = this.findReferenceSequence( loc );
-            if( ref ) {
-                this.navigateToLocation( { ref: ref.name } );
-                return;
-            }
+                      // if it's a foo:123..456 location, go there
+                      var location = typeof loc == 'string' ? Util.parseLocString( loc ) :  loc;
+                      // only call navigateToLocation() directly if location has start and end, otherwise try and fill in start/end from 'location' cookie
+                      if( location && ("start" in location) && ("end" in location)) {
+                          thisB.navigateToLocation( location );
+                          return;
+                      }
+                      // otherwise, if it's just a word (or a location with only a ref property), try to figure out what it is
+                      else {
+                          if( typeof loc != 'string')
+                              loc = loc.ref;
 
-            // lastly, try to search our feature names for it
-            this.searchNames( loc );
-        }
-    }));
+                          // is it just the name of one of our ref seqs?
+                          var ref = thisB.findReferenceSequence( loc );
+                          if( ref ) {
+                              thisB.navigateToLocation( { ref: ref.name } );
+                              return;
+                          }
+                      }
+
+                      new InfoDialog(
+                          {
+                              title: 'Not found',
+                              content: 'Not found: <span class="locString">'+loc+'</span>',
+                              className: 'notfound-dialog'
+                          }).show();
+                  });
+    });
 },
 
 findReferenceSequence: function( name ) {
@@ -1801,19 +1877,13 @@ navigateToLocation: function( location ) {
  */
 searchNames: function( /**String*/ loc ) {
     var thisB = this;
-    this.nameStore.query({ name: loc })
+    return this.nameStore.query({ name: loc })
         .then(
             function( nameMatches ) {
                 // if we have no matches, pop up a dialog saying so, and
                 // do nothing more
                 if( ! nameMatches.length ) {
-                    new InfoDialog(
-                        {
-                            title: 'Not found',
-                            content: 'Not found: <span class="locString">'+loc+'</span>',
-                            className: 'notfound-dialog'
-                        }).show();
-                    return;
+                    return false;
                 }
 
                 var goingTo;
@@ -1835,8 +1905,8 @@ searchNames: function( /**String*/ loc ) {
 
                 // if it has one location, go to it
                 if( goingTo.location ) {
-                        //go to location, with some flanking region
-                        thisB.showRegionWithHighlight( goingTo.location );
+                    //go to location, with some flanking region
+                    thisB.showRegionAfterSearch( goingTo.location );
                 }
                 // otherwise, pop up a dialog with a list of the locations to choose from
                 else if( goingTo.multipleLocations ) {
@@ -1849,6 +1919,7 @@ searchNames: function( /**String*/ loc ) {
                         })
                         .show();
                 }
+                return true;
             },
             function(e) {
                 console.error( e );
@@ -1857,7 +1928,7 @@ searchNames: function( /**String*/ loc ) {
                         title: 'Error',
                         content: 'Error reading from name store.'
                     }).show();
-                return;
+                return false;
             }
    );
 },
@@ -2215,12 +2286,11 @@ createNavBox: function( parent ) {
     var four_nbsp = String.fromCharCode(160); four_nbsp = four_nbsp + four_nbsp + four_nbsp + four_nbsp;
     navbox.appendChild(document.createTextNode( four_nbsp ));
 
-    var moveLeft = document.createElement("input");
-    moveLeft.type = "image";
-    moveLeft.src = this.resolveUrl( "img/slide-left.png" );
+    var moveLeft = document.createElement("img");
+    //moveLeft.type = "image";
+    moveLeft.src = this.resolveUrl( "img/Empty.png" );
     moveLeft.id = "moveLeft";
     moveLeft.className = "icon nav";
-    moveLeft.style.height = "40px";
     navbox.appendChild(moveLeft);
     dojo.connect( moveLeft, "click", this,
                   function(event) {
@@ -2228,12 +2298,11 @@ createNavBox: function( parent ) {
                       this.view.slide(0.9);
                   });
 
-    var moveRight = document.createElement("input");
-    moveRight.type = "image";
-    moveRight.src = this.resolveUrl( "img/slide-right.png" );
+    var moveRight = document.createElement("img");
+    //moveRight.type = "image";
+    moveRight.src = this.resolveUrl( "img/Empty.png" );
     moveRight.id="moveRight";
     moveRight.className = "icon nav";
-    moveRight.style.height = "40px";
     navbox.appendChild(moveRight);
     dojo.connect( moveRight, "click", this,
                   function(event) {
@@ -2243,12 +2312,11 @@ createNavBox: function( parent ) {
 
     navbox.appendChild(document.createTextNode( four_nbsp ));
 
-    var bigZoomOut = document.createElement("input");
-    bigZoomOut.type = "image";
-    bigZoomOut.src = this.resolveUrl( "img/zoom-out-2.png" );
+    var bigZoomOut = document.createElement("img");
+    //bigZoomOut.type = "image";
+    bigZoomOut.src = this.resolveUrl( "img/Empty.png" );
     bigZoomOut.id = "bigZoomOut";
     bigZoomOut.className = "icon nav";
-    bigZoomOut.style.height = "40px";
     navbox.appendChild(bigZoomOut);
     dojo.connect( bigZoomOut, "click", this,
                   function(event) {
@@ -2257,12 +2325,11 @@ createNavBox: function( parent ) {
                   });
 
 
-    var zoomOut = document.createElement("input");
-    zoomOut.type = "image";
-    zoomOut.src = this.resolveUrl("img/zoom-out-1.png");
+    var zoomOut = document.createElement("img");
+    //zoomOut.type = "image";
+    zoomOut.src = this.resolveUrl("img/Empty.png");
     zoomOut.id = "zoomOut";
     zoomOut.className = "icon nav";
-    zoomOut.style.height = "40px";
     navbox.appendChild(zoomOut);
     dojo.connect( zoomOut, "click", this,
                   function(event) {
@@ -2270,12 +2337,11 @@ createNavBox: function( parent ) {
                      this.view.zoomOut();
                   });
 
-    var zoomIn = document.createElement("input");
-    zoomIn.type = "image";
-    zoomIn.src = this.resolveUrl( "img/zoom-in-1.png" );
+    var zoomIn = document.createElement("img");
+    //zoomIn.type = "image";
+    zoomIn.src = this.resolveUrl( "img/Empty.png" );
     zoomIn.id = "zoomIn";
     zoomIn.className = "icon nav";
-    zoomIn.style.height = "40px";
     navbox.appendChild(zoomIn);
     dojo.connect( zoomIn, "click", this,
                   function(event) {
@@ -2283,12 +2349,11 @@ createNavBox: function( parent ) {
                       this.view.zoomIn();
                   });
 
-    var bigZoomIn = document.createElement("input");
-    bigZoomIn.type = "image";
-    bigZoomIn.src = this.resolveUrl( "img/zoom-in-2.png" );
+    var bigZoomIn = document.createElement("img");
+    //bigZoomIn.type = "image";
+    bigZoomIn.src = this.resolveUrl( "img/Empty.png" );
     bigZoomIn.id = "bigZoomIn";
     bigZoomIn.className = "icon nav";
-    bigZoomIn.style.height = "40px";
     navbox.appendChild(bigZoomIn);
     dojo.connect( bigZoomIn, "click", this,
                   function(event) {
@@ -2505,19 +2570,26 @@ setHighlightAndRedraw: function( location ) {
 },
 
 /**
- * Clears the old highlight if necessary, sets the given new
- * highlight, and updates the display to show the highlighted location.
+ * Shows a region that has been searched for someplace else in the UI.
+ * Highlights it if this.config.highlightSearchedRegions is true.
  */
-showRegionWithHighlight: function( location ) {
+showRegionAfterSearch: function( location ) {
     location = this.regularizeLocation( location );
 
-    var oldHighlight = this.getHighlight();
-    if( oldHighlight )
-        this.view.hideRegion( oldHighlight );
-    this.view.hideRegion( location );
-    this.setHighlight( location );
+    if( this.config.highlightSearchedRegions ) {
+        var oldHighlight = this.getHighlight();
+        if( oldHighlight )
+            this.view.hideRegion( oldHighlight );
+        this.view.hideRegion( location );
+        this.setHighlight( location );
+    }
     this.showRegion( location );
+},
+showRegionWithHighlight: function() { // backcompat
+    return this.showRegionAfterSearch.apply( this, arguments );
 }
+
+
 });
 });
 

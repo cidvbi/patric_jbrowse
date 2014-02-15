@@ -14,7 +14,6 @@ use base 'Bio::JBrowse::Cmd';
 
 use File::Spec ();
 use POSIX ();
-use DB_File ();
 use Storable ();
 use File::Path ();
 use File::Temp ();
@@ -28,7 +27,7 @@ sub option_defaults {(
     completionLimit => 20,
     locationLimit => 100,
     mem => 256 * 2**20,
-    tracks => []
+    tracks => [],
 )}
 
 sub option_definitions {(
@@ -45,7 +44,8 @@ sub option_definitions {(
 'hashBits=i',
 'incremental|i',
 "help|h|?",
-'safeMode'
+'safeMode',
+'compress'
 )}
 
 sub initialize {
@@ -123,23 +123,22 @@ sub load {
     # on the data in the hash store
     my $operation_stream = $self->make_operation_stream( $self->make_name_record_stream( $ref_seqs, $names_files ), $names_files );
 
-    $self->name_store->empty unless $self->opt('incremental');
+    # hash each operation and write it to a log file
+    $self->name_store->stream_do(
+        $operation_stream,
+        sub {
+            my ( $operation, $data ) = @_;
+            my %fake_store = ( $operation->[0] => $data );
+            $self->do_hash_operation( \%fake_store, $operation );
+            return $fake_store{ $operation->[0] } ;
+        },
+        $self->{stats}{operation_stream_estimated_count},
+        );
 
-    # finally copy the temp store to the namestore
-    $self->vprint( "Using ".$self->hash_bits."-bit hashing\n" );
-
-    # make a stream of key/value pairs and load them into the HashStore
-    $self->name_store->stream_set(
-        $self->make_key_value_stream( $operation_stream ),
-        $self->{stats}{key_count},
-        ( $self->opt('incremental')
-              ? sub {
-                  return $self->_mergeIndexEntries( @_ );
-                }
-              : ()
-        )
-    );
 }
+
+sub _hash_operation_freeze { $_[1] }
+sub _hash_operation_thaw   { $_[1] }
 
 sub _uniq {
     my $self = shift;
@@ -211,32 +210,53 @@ sub track_is_included {
 
 sub name_store {
     my ( $self ) = @_;
-    return $self->{name_store} ||= Bio::JBrowse::HashStore->open(
-        dir   => File::Spec->catdir( $self->opt('dir'), "names" ),
-        work_dir => $self->opt('workdir'),
-        mem => $self->opt('mem'),
-        nosync => 1,
+    unless( $self->{name_store} ) {
+        $self->{name_store} = tie my %tied_hash, 'Bio::JBrowse::HashStore', (
+                dir   => File::Spec->catdir( $self->opt('dir'), "names" ),
+                work_dir => $self->opt('workdir'),
+                mem => $self->opt('mem'),
+                empty => ! $self->opt('incremental'),
+                compress => $self->opt('compress'),
 
-        hash_bits => $self->hash_bits,
+                hash_bits => $self->requested_hash_bits,
 
-        verbose => $self->opt('verbose')
-    );
+                verbose => $self->opt('verbose')
+        );
+        $self->{name_store_tied_hash} = \%tied_hash;
+    }
+    return $self->{name_store};
 }
+sub name_store_tied_hash {
+    my ( $self ) = @_;
+    $self->name_store;
+    return $self->{name_store_tied_hash};
+}
+
+
 sub close_name_store {
-    delete shift->{name_store};
+    my ( $self ) = @_;
+    delete $self->{name_store};
+    delete $self->{name_store_tied_hash};
 }
 
-sub hash_bits {
+sub requested_hash_bits {
     my $self = shift;
     # set the hash size to try to get about 5-10KB per file, at an
     # average of about 500 bytes per name record, for about 10 records
-    # per file. if the store has existing data in it, this will be
-    # ignored
+    # per file (uncompressed). if the store has existing data in it,
+    # this will be ignored.
     return $self->{hash_bits} ||= $self->opt('hashBits')
-                 || ( $self->{stats}{record_stream_estimated_count}
-                         ? sprintf( '%0.0f', List::Util::max( 4, List::Util::min( 32, 4*int( log( $self->{stats}{record_stream_estimated_count} / 10 )/ 4 / log(2)) )))
-                      : 12
-                    );
+      || do {
+          if( $self->{stats}{record_stream_estimated_count} ) {
+              my $records_per_bucket = $self->opt('compress') ? 40 : 10;
+              my $bits = 4*int( log( $self->{stats}{record_stream_estimated_count} / $records_per_bucket )/ 4 / log(2));
+              # clamp bits between 4 and 32
+              sprintf( '%0.0f', List::Util::max( 4, List::Util::min( 32, $bits ) ));
+          }
+          else {
+              12
+          }
+      };
 }
 
 sub make_name_record_stream {
@@ -264,7 +284,6 @@ sub make_name_record_stream {
             my $nameinfo = $name_records_iterator->() || do {
                 my $file = shift @names_files;
                 return unless $file;
-                #print STDERR "Processing $file->{fullpath}\n";
                 $name_records_iterator = $self->make_names_iterator( $file );
                 $name_records_iterator->();
             } or return;
@@ -287,62 +306,6 @@ sub make_name_record_stream {
     };
 }
 
-sub make_key_value_stream {
-    my $self    = shift;
-    my $workdir = $self->opt('workdir') || $self->opt('dir');
-
-    my $tempfile = File::Temp->new( TEMPLATE => 'names-build-tmp-XXXXXXXX', DIR => $workdir, UNLINK => 1 );
-    $self->vprint( "Temporary key-value DBM file: $tempfile\n" );
-
-    # load a temporary DB_File with the completion data
-    $self->_build_index_temp( shift, $tempfile ); #< use shift to free the $operation_stream after index is built
-
-    # reopen the temp store with default cache size to save memory
-    my $temp_store = $self->name_store->db_open( $tempfile, POSIX::O_RDONLY, 0666 );
-    $self->{stats}{key_count} = scalar keys %$temp_store;
-    return sub {
-        my ( $k, $v ) = each %$temp_store;
-        return $k ? ( $k, Storable::thaw($v) ) : ();
-    };
-}
-
-sub _build_index_temp {
-    my ( $self, $operation_stream, $tempfile ) = @_;
-
-    my $temp_store = $self->name_store->db_open(
-        $tempfile, POSIX::O_RDWR|POSIX::O_TRUNC, 0666,
-        { flags => 0x1, cachesize => $self->opt('mem') }
-        );
-
-    my $progressbar;
-    my $progress_next_update = 0;
-    if ( $self->opt('verbose') ) {
-        print "Estimating $self->{stats}{operation_stream_estimated_count} index operations on $self->{stats}{record_stream_estimated_count} completion records\n";
-        eval {
-            require Term::ProgressBar;
-            $progressbar = Term::ProgressBar->new({name  => 'Gathering locations, generating completions',
-                                                   count => $self->{stats}{operation_stream_estimated_count},
-                                                   ETA   => 'linear', });
-            $progressbar->max_update_rate(1);
-        }
-    }
-
-    # now write it to the temp store
-    while ( my $op = $operation_stream->() ) {
-        $self->do_hash_operation( $temp_store, $op );
-        $self->{stats}{operations_processed}++;
-
-        if ( $progressbar && $self->{stats}{operations_processed} > $progress_next_update
-             && $self->{stats}{operations_processed} < $self->{stats}{operation_stream_estimated_count}
-           ) {
-            $progress_next_update = $progressbar->update( $self->{stats}{operations_processed} );
-        }
-    }
-
-    if ( $progressbar && $self->{stats}{operation_stream_estimated_count} >= $progress_next_update ) {
-        $progressbar->update( $self->{stats}{operation_stream_estimated_count} );
-    }
-}
 
 
 sub find_names_files {
@@ -404,13 +367,18 @@ sub make_operation_stream {
     # estimate the total number of name records we probably have based on the input file sizes
     #print "sizes: $self->{stats}{total_namerec_bytes}, buffered: $namerecs_buffered, b/rec: ".$total_namerec_sizes/$namerecs_buffered."\n";
     $self->{stats}{avg_record_text_bytes} = $self->{stats}{total_namerec_bytes}/($self->{stats}{namerecs_buffered}||1);
-    $self->{stats}{total_input_bytes} = List::Util::sum( map { -s $_->{fullpath} } @$names_files ) || 0;
+    $self->{stats}{total_input_bytes} = List::Util::sum(
+        map { my $s = -s $_->{fullpath};
+              $s *= 8 if $_->{fullpath} =~ /\.(g|txt|json)z$/;
+              $s;
+          } @$names_files ) || 0;
     $self->{stats}{record_stream_estimated_count} = int( $self->{stats}{total_input_bytes} / ($self->{stats}{avg_record_text_bytes}||1));;
     $self->{stats}{operation_stream_estimated_count} = $self->{stats}{record_stream_estimated_count} * int( @operation_buffer / ($self->{stats}{namerecs_converted_to_operations}||1) );
 
     if( $self->opt('verbose') ) {
         print "Sampled input stats:\n";
         while( my ($k,$v) = each %{$self->{stats}} ) {
+            next if ref $v;
             $k =~ s/_/ /g;
             printf( '%40s'." $v\n", $k );
         }
@@ -434,6 +402,13 @@ sub make_operations {
     my ( $self, $record ) = @_;
 
     my $lc_name = lc $record->[0];
+    unless( $lc_name ) {
+        unless( $self->{already_warned_about_blank_name_records} ) {
+            warn "WARNING: some blank name records found, skipping.\n";
+            $self->{already_warned_about_blank_name_records} = 1;
+        }
+        return;
+    }
 
     my @ops = ( [ $lc_name, $OP_ADD_EXACT, $record ] );
 
@@ -499,11 +474,6 @@ sub do_hash_operation {
     }
 }
 
-sub _hash_operation_freeze {  Storable::freeze( $_[1] ) }
-sub _hash_operation_thaw   {    Storable::thaw( $_[1] ) }
-
-
-
 # each of these takes an input filename and returns a subroutine that
 # returns name records until there are no more, for either names.txt
 # files or old-style names.json files
@@ -546,6 +516,10 @@ sub make_names_iterator {
             my $line;
             while( ($line = <$input_fh>) =~ /^#/ ) {}
             return unless $line;
+
+            $self->{stats}{name_input_records}++;
+            $self->{stats}{total_namerec_bytes} += length $line;
+
             my ( $ref, $start, $name, $basevar ) = split "\t", $line, 5;
             $start--;
             return [[$name],$file_record->{trackName},$name,$ref, $start, $start+length($basevar)];
@@ -560,9 +534,32 @@ sub make_names_iterator {
 sub open_names_file {
     my ( $self, $filerec ) = @_;
     my $infile = $filerec->{fullpath};
-    my $gzip = $filerec->{gzipped} ? ':gzip' : '';
-    open my $fh, "<$gzip", $infile or die "$! reading $infile";
-    return $fh;
+    if( $filerec->{gzipped} ) {
+        # can't use PerlIO::gzip, it truncates bgzipped files
+        my $z;
+        eval {
+            require IO::Uncompress::Gunzip;
+            $z = IO::Uncompress::Gunzip->new( $filerec->{fullpath }, -MultiStream => 1 )
+                or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
+        };
+        if( $@ ) {
+            # fall back to use gzip command if available
+            if( `which gunzip` ) {
+                open my $fh, '-|', 'gzip', '-dc', $filerec->{fullpath}
+                   or die "$! running gunzip";
+                return $fh;
+            } else {
+                die "cannot uncompress $filerec->{fullpath}, could not use either IO::Uncompress::Gunzip or gzip";
+            }
+        }
+        else {
+            return $z;
+        }
+    }
+    else {
+        open my $fh, '<', $infile or die "$! reading $infile";
+        return $fh;
+    }
 }
 
 

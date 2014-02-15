@@ -20,6 +20,9 @@ return declare( [WiggleXY, AlignmentsMixin],
         var thisB = this;
         this.store = new SNPCoverageStore(
             { store: this.store,
+              config: {
+                  mismatchScale: this.config.mismatchScale
+              },
               browser: this.browser,
               filter: function( f ) {
                   return thisB.filterFeature( f );
@@ -33,6 +36,8 @@ return declare( [WiggleXY, AlignmentsMixin],
             {
                 autoscale: 'local',
                 min_score: 0,
+
+                mismatchScale: 1/10,
 
                 hideDuplicateReads: true,
                 hideQCFailingReads: true,
@@ -119,7 +124,7 @@ return declare( [WiggleXY, AlignmentsMixin],
 
             // draw indicators of SNPs if base coverage is greater than 50% of total coverage
             score.forEach( function( count, category ) {
-                if ( category != 'reference' && count > 0.5*totalHeight ) {
+                if ( !{reference:true,skip:true,deletion:true}[category] && count > 0.5*totalHeight ) {
                     snpContext.beginPath();
                     snpContext.arc( fRect.l + 0.5*fRect.w,
                                     0.40*snpCanvas.height,
@@ -205,20 +210,13 @@ return declare( [WiggleXY, AlignmentsMixin],
             var total = score.total();
             var scoreSummary = '<table>';
             function pctString( count ) {
-                return Math.round(count/total*100)+'%';
+                count = Math.round(count/total*100);
+                if( typeof count == 'number' && ! isNaN(count) )
+                    return count+'%';
+                return '';
             }
-            scoreSummary +=
-                  '<tr class="ref"><td>'
-                + (score.refBase ? score.refBase+'*' : 'Ref')
-                + '</td><td class="count">'
-                + fmtNum( score.get('reference') )
-                + '</td><td class="pct">'
-                + pctString( score.get('reference') )
-                + '</td></tr>';
 
             score.forEach( function( count, category ) {
-                if( category == 'reference' ) return;
-
                 // if this count has more nested categories, do counts of those
                 var subdistribution = '';
                 if( count.forEach ) {
@@ -231,7 +229,7 @@ return declare( [WiggleXY, AlignmentsMixin],
                         subdistribution = '('+subdistribution+')';
                 }
 
-                category = { '*': 'del' }[category] || category;
+                category = { '*': 'del', reference: 'Ref', skip: 'Skip/intron' }[category] || category;
                 scoreSummary += '<tr><td>'+category + '</td><td class="count">' + fmtNum(count) + '</td><td class="pct">'
                                    +pctString(count)+'</td><td class="subdist">'+subdistribution + '</td></tr>';
             });

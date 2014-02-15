@@ -56,8 +56,7 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
      */
     constructor: function( args ) {
         //number of histogram bins per block
-        this.numBins = 25;
-        this.histLabel = false;
+        this.numBins = lang.getObject( 'histogram.binsPerBlock', false, this.config ) || 25;
 
         this.defaultPadding = 5;
         this.padding = this.defaultPadding;
@@ -85,7 +84,9 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
      * @private
      */
     _defaultConfig: function() {
-        return {
+        return Util.deepUpdate(
+            lang.clone( this.inherited(arguments) ),
+            {
             maxFeatureScreenDensity: 0.5,
 
             // maximum height of the track, in pixels
@@ -136,7 +137,7 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
                   iconClass: 'dijitIconFilter'
                 }
             ]
-        };
+        });
     },
 
     /**
@@ -156,7 +157,7 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
         };
     },
 
-    fillHist: function( args ) {
+    fillHistograms: function( args ) {
         var blockIndex = args.blockIndex;
         var block = args.block;
         var leftBase = args.leftBase;
@@ -363,19 +364,19 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
                 var blockBases = Math.abs( leftBase-rightBase );
                 if( this._updatedLabelForBlockSize != blockBases ){
                     if ( this.store.getRegionFeatureDensities && scale < histScale ) {
-                        this.setLabel(this.key + ' <span class="feature-density">per ' + Util.addCommas( Math.round( blockBases / this.numBins)) + ' bp</span>');
+                        this.setLabel( this.key + ' <span class="feature-density">per '
+                                       + Util.addCommas( Math.round( blockBases / this.numBins))
+                                       + ' bp</span>');
                     } else {
-                        this.setLabel(this.key);
+                        this.setLabel( this.key );
                     }
                     this._updatedLabelForBlockSize = blockBases;
                 }
 
-                // console.log(this.name+" scale: %d, density: %d, histScale: %d, screenDensity: %d", scale, stats.featureDensity, this.config.style.histScale, stats.featureDensity / scale );
-
-                // if we our store offers density histograms, and we are zoomed out far enough, draw them
+                // if our store offers density histograms, and we are zoomed out far enough, draw them
                 if( this.store.getRegionFeatureDensities && scale < histScale ) {
                     this._fillType = 'histograms';
-                    this.fillHist( args );
+                    this.fillHistograms( args );
                 }
                 // if we have no histograms, check the predicted density of
                 // features on the screen, and display a message if it's
@@ -391,7 +392,7 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
                 else {
                     // if we have transitioned to viewing features, delete the
                     // y-scale used for the histograms
-                    this._removeYScale();
+                    this.removeYScale();
                     this._fillType = 'features';
                     this.fillFeatures( dojo.mixin( {stats: stats}, args ) );
                 }
@@ -423,7 +424,7 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
           ) {
               return;
           } else {
-              this._removeYScale();
+              this.removeYScale();
               this.makeYScale({ min: 0, max: maxval });
               this.yscale_params = {
                   height: this.height,
@@ -431,20 +432,6 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
                   maxval: maxval
               };
           }
-    },
-
-    /**
-     * Delete the Y-axis scale if present.
-     * @private
-     */
-    _removeYScale: function() {
-        if( !this.yscale ) {
-            query( '.ruler', this.div ).orphan();
-            return;
-        }
-        this.yscale.parentNode.removeChild( this.yscale );
-        delete this.yscale_params;
-        delete this.yscale;
     },
 
     destroy: function() {
@@ -553,11 +540,11 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
             }
         }
         // add the processed subfeatures, if in frame.
-        dojo.query( '.basicSubfeature', sourceSlot ).forEach(
+        query( '.basicSubfeature', sourceSlot ).forEach(
             function(node, idx, arr) {
                 var start = node.subfeatureEdges.s;
                 var end   = node.subfeatureEdges.e;
-                if ( end < containerStart || start > containerEnd ) 
+                if ( end < containerStart || start > containerEnd )
                     return;
                 node.style.left = 100*(start-s)/(e-s)+'%';
                 node.style.width = 100*(end-start)/(e-s)+'%';
@@ -567,11 +554,11 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
         if ( this.config.style.arrowheadClass ) {
             // add arrowheads
             var a = this.config.style.arrowheadClass;
-            dojo.query( '.minus-'+a+', .plus-'+a, sourceSlot ).forEach( 
+            query( '.minus-'+a+', .plus-'+a, sourceSlot ).forEach(
                 function(node, idx, arr) {
                     featDiv.appendChild(node);
                 }
-            )
+            );
         }
         featDiv.className = 'basic';
         featDiv.oldClassName = sourceSlot.oldClassName;
@@ -710,9 +697,9 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
         for ( var i in blocks ) {
             if ( blocks.hasOwnProperty(i) ) {
                 // loop through all blocks
-                if ( !blocks[i] ) 
+                if ( !blocks[i] )
                     continue;
-                var block = blocks[i]
+                var block = blocks[i];
                 var bs = block.startBase;
                 var be = block.endBase;
 
@@ -758,7 +745,7 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
 
                 var addDiv = function ( start, end, parentDiv, masked, voidClass, isAdded ) {
                     // Loop through coverage Nodes, combining existing nodes so they don't overlap, and add new divs.
-                    var isAdded = isAdded || false; 
+                    isAdded = isAdded || false;
                     for ( var key in parentDiv.childNodes ) {
                         if ( parentDiv.childNodes[key] && parentDiv.childNodes[key].booleanDiv ) {
                             var divStart = parentDiv.childNodes[key].span.s;
@@ -1227,8 +1214,8 @@ var HTMLFeatures = declare( [ BlockBased, YScaleMixin, ExportMixin, FeatureDetai
         var menu = this._renderContextMenu( menuTemplate, featDiv );
         menu.startup();
         menu.bindDomNode( featDiv );
-        if( featDiv.labelDiv )
-            menu.bindDomNode( featDiv.labelDiv );
+        if( featDiv.label )
+            menu.bindDomNode( featDiv.label );
 
         return menu;
     },

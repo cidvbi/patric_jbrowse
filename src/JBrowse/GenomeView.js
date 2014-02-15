@@ -146,8 +146,6 @@ constructor: function( args ) {
     //smallest value for the sum of this.offset and this.getX()
     //this prevents us from scrolling off the left end of the ref seq
     this.minLeft = this.bpToPx(this.ref.start);
-    //distance, in pixels, between each track
-    this.trackPadding = 20;
     //extra margin to draw around the visible area, in multiples of the visible area
     //0: draw only the visible area; 0.1: draw an extra 10% around the visible area, etc.
     this.drawMargin = 0.2;
@@ -187,7 +185,7 @@ constructor: function( args ) {
     this.staticTrack.setViewInfo( this, function(height) {}, this.stripeCount,
                                  this.scaleTrackDiv, this.stripePercent,
                                  this.stripeWidth, this.pxPerBp,
-                                 this.trackPadding);
+                                 this.config.trackPadding);
     this.zoomContainer.appendChild(this.scaleTrackDiv);
     this.waitElems.push(this.scaleTrackDiv);
 
@@ -202,7 +200,7 @@ constructor: function( args ) {
     gridTrack.setViewInfo( this, function(height) {}, this.stripeCount,
                           gridTrackDiv, this.stripePercent,
                           this.stripeWidth, this.pxPerBp,
-                          this.trackPadding);
+                          this.config.trackPadding);
     this.trackContainer.appendChild(gridTrackDiv);
     this.uiTracks = [this.staticTrack, gridTrack];
 
@@ -278,7 +276,8 @@ constructor: function( args ) {
 
 _defaultConfig: function() {
     return {
-        maxPxPerBp: 20
+        maxPxPerBp: 20,
+        trackPadding: 20 // distance in pixels between each track
     };
 },
 
@@ -529,20 +528,22 @@ _behaviors: function() { return {
     // mouse events connected when the shift button is being held down
     shiftMouse: {
         apply: function() {
-            dojo.removeClass(this.trackContainer,'draggable');
-            dojo.addClass(this.trackContainer,'rubberBandAvailable');
-            return [
-                dojo.connect( this.outerTrackContainer, "mousedown",
-                              dojo.hitch( this, 'startRubberZoom',
-                                          dojo.hitch(this,'absXtoBp'),
-                                          this.scrollContainer,
-                                          this.scaleTrackDiv
-                                        )
-                            ),
-                dojo.connect( this.outerTrackContainer, "onclick",   this, 'scaleClicked'                  ),
-                dojo.connect( this.outerTrackContainer, "mouseover", this, 'maybeDrawVerticalPositionLine' ),
-                dojo.connect( this.outerTrackContainer, "mousemove", this, 'maybeDrawVerticalPositionLine' )
-            ];
+            if ( !dojo.hasClass(this.trackContainer, 'highlightingAvailable') ){
+                dojo.removeClass(this.trackContainer,'draggable');
+                dojo.addClass(this.trackContainer,'rubberBandAvailable');
+                return [
+                    dojo.connect( this.outerTrackContainer, "mousedown",
+                                  dojo.hitch( this, 'startRubberZoom',
+                                              dojo.hitch(this,'absXtoBp'),
+                                              this.scrollContainer,
+                                              this.scaleTrackDiv
+                                            )
+                                ),
+                    dojo.connect( this.outerTrackContainer, "onclick",   this, 'scaleClicked'                  ),
+                    dojo.connect( this.outerTrackContainer, "mouseover", this, 'maybeDrawVerticalPositionLine' ),
+                    dojo.connect( this.outerTrackContainer, "mousemove", this, 'maybeDrawVerticalPositionLine' )
+                ];
+            }
         },
         remove: function( mgr, handles ) {
             this.clearBasePairLabels();
@@ -625,7 +626,8 @@ wheelScroll: function( event ) {
         delta.y = event.wheelDeltaY/2;
     }
     else if( 'deltaX' in event ) {
-        delta.x = event.deltaX*-40;
+        var multiplier = navigator.userAgent.indexOf("OS X 10.9")!==-1 ? -5 : -40;
+        delta.x = Math.abs(event.deltaY) > Math.abs(2*event.deltaX) ? 0 : event.deltaX*multiplier;
         delta.y = event.deltaY*-10;
     }
     else if( event.wheelDelta ) {
@@ -1580,7 +1582,7 @@ sizeInit: function() {
     var newHeight =
         this.trackHeights && this.trackHeights.length
           ? Math.max(
-              dojof.reduce( this.trackHeights, '+') + this.trackPadding * this.trackHeights.length,
+              dojof.reduce( this.trackHeights, '+') + this.config.trackPadding * this.trackHeights.length,
               this.getHeight()
             )
           : this.getHeight();
@@ -1588,6 +1590,9 @@ sizeInit: function() {
     this.containerHeight = newHeight;
 
     var refLength = this.ref.end - this.ref.start;
+    if( refLength < 0 )
+        throw new Error("reference sequence "+this.ref.name+" has an invalid start coordinate, it is greater than its end coordinate.");
+
     var posSize = document.createElement("div");
     posSize.className = "overview-pos";
     posSize.appendChild(document.createTextNode(Util.addCommas(this.ref.end)));
@@ -1687,7 +1692,7 @@ addOverviewTrack: function(track) {
         overviewStripePct,
         this.overviewStripeBases,
         this.pxPerBp,
-        this.trackPadding
+        this.config.trackPadding
     );
     this.overview.appendChild(trackDiv);
     this.updateOverviewHeight();
@@ -1706,7 +1711,7 @@ trimVertical: function(y) {
             if (!((trackBottom > y) && (trackTop < bottom))) {
                 this.tracks[i].hideAll();
             }
-            trackTop = trackBottom + this.trackPadding;
+            trackTop = trackBottom + this.config.trackPadding;
         }
     }
 },
@@ -1964,7 +1969,7 @@ trackHeightUpdate: function(trackName, height) {
         //console.log("track " + trackName + ": " + this.trackHeights[track] + " -> " + height + "; y: " + y + " -> " + this.getY());
     }
     this.trackHeights[track] = height;
-    this.tracks[track].div.style.height = (height + this.trackPadding) + "px";
+    this.tracks[track].div.style.height = (height + this.config.trackPadding) + "px";
 
     this.layoutTracks();
 
@@ -2193,7 +2198,7 @@ renderTrack: function( /**Object*/ trackConfig ) {
                 refSeq: this.ref,
                 config: trackConfig,
                 changeCallback: dojo.hitch( this, 'showVisibleBlocks', true ),
-                trackPadding: this.trackPadding,
+                trackPadding: this.config.trackPadding,
                 store: store,
                 browser: this.browser
             });
@@ -2205,7 +2210,7 @@ renderTrack: function( /**Object*/ trackConfig ) {
         var heightUpdate = dojo.hitch( this, 'trackHeightUpdate', trackName );
         track.setViewInfo( this, heightUpdate, this.stripeCount, trackDiv,
                            this.stripePercent, this.stripeWidth,
-                           this.pxPerBp, this.trackPadding);
+                           this.pxPerBp, this.config.trackPadding);
 
         track.updateStaticElements({
             x: this.getX(),
@@ -2285,7 +2290,7 @@ updateTrackList: function() {
             this.pinUnderlay = domConstruct.create('div', {
                                                        className: 'pin_underlay',
                                                        style: 'top: '+this.topSpace
-                                                   }, this.scrollContainer );
+                                                   }, this.trackContainer );
         if( ! this.pinGridlinesTrack ) {
             var gridTrackDiv = domConstruct.create(
                 "div",
@@ -2300,7 +2305,7 @@ updateTrackList: function() {
             this.pinGridlinesTrack.setViewInfo( this, function() {}, this.stripeCount,
                                                 gridTrackDiv, this.stripePercent,
                                                 this.stripeWidth, this.pxPerBp,
-                                                this.trackPadding);
+                                                this.config.trackPadding);
             this.uiTracks.push( this.pinGridlinesTrack );
         }
     }
@@ -2379,7 +2384,7 @@ layoutTracks: function() {
         }
 
         if ( track.shown ) {
-            nextTop += this.trackHeights[i] + this.trackPadding;
+            nextTop += this.trackHeights[i] + this.config.trackPadding;
             if( track.isPinned() )
                 pinnedHeight = nextTop;
         }
