@@ -4,6 +4,7 @@ define([
         'dojo/aspect',
         'dijit/focus',
         'dijit/form/Button',
+        'dijit/form/RadioButton',
         'dijit/form/CheckBox',
         'dijit/form/TextBox',
         'JBrowse/View/Dialog/WithActionBar'
@@ -14,6 +15,7 @@ define([
         aspect,
         focus,
         dButton,
+        dRButton,
         dCheckBox,
         dTextBox,
         ActionBarDialog
@@ -47,9 +49,19 @@ return declare( ActionBarDialog, {
                         className: "header",
                         innerHTML: "Search for"
                     }, searchBoxDiv );
-        content.searchBox = new dTextBox({});
-        searchBoxDiv.appendChild( content.searchBox.domNode );
+        var translateDiv = dom.create("div", {
+            className: "translateContainer"
+        }, searchBoxDiv );
+        function makeRadio( args, parent ) {
+            var label = dom.create('label', {}, parent );
+            var radio = new dRButton( args ).placeAt( label );
+            dom.create('span', { innerHTML: args.label }, label );
+            return radio;
+        }
+        makeRadio( { name: 'translate', value: 'no', label: 'DNA', checked: true }, translateDiv );
+        content.translate = makeRadio( { name: 'translate', value: 'yes', label: 'AA' }, translateDiv );
 
+        content.searchBox = new dTextBox({}).placeAt( searchBoxDiv );
 
         // Render 'ignore case' checkbox
         var textOptionsDiv = dom.create('div', {
@@ -67,17 +79,6 @@ return declare( ActionBarDialog, {
         dom.create( "label", { "for": "search_ignore_case", innerHTML: "Ignore Case"}, caseDiv );
 
 
-        var translateDiv = dom.create("div", {
-            className: "checkboxdiv"
-        }, textOptionsDiv );
-        // Checkbox that toggles amino acid search
-        content.translate = new dCheckBox({
-                                                label: "Translate sequence before searching",
-                                                id: "search_translate_first"
-                                            });
-        translateDiv.appendChild( content.translate.domNode );
-        dom.create( "label", { "for": "search_translate_first", innerHTML: "Translate sequence before searching" }, translateDiv );
-
 
         // Render 'treat as regex' checkbox
         var regexDiv = dom.create("div", {
@@ -86,8 +87,7 @@ return declare( ActionBarDialog, {
         content.regex = new dCheckBox({
                                         label: "Treat as regular expression",
                                         id: "search_as_regex"
-                                    });
-        regexDiv.appendChild( content.regex.domNode );
+                                    }).placeAt( regexDiv );
         dom.create( "label", { "for": "search_as_regex", innerHTML: "Treat as regular expression" }, regexDiv );
 
         // Render 'forward strand' and 'reverse strand' checkboxes

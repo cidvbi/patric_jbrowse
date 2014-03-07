@@ -2,6 +2,67 @@
 
 ## Minor improvements
 
+ * Added a "Zoom to this" item in the default right-click menus for
+   canvas-based feature tracks.  Thanks to Paul Hale for the initial
+   implementation of this.
+
+ * Allow the user to set the document.domain property via jbrowse.conf
+   which can be helpful especially if jbrowse is embedded in a iframe.
+   Thanks to Kieran Raine for the idea and Colin Diesh for the bugfix
+   (issue #440)
+
+ * Improved the graphic design of the "Add sequence search" dialog box
+   to make it clearer how to switch between providing an amino acid
+   and a nucleotide sequence.  Thanks to Kevin Mohamed for the initial
+   implementation of this (issue #436).
+
+ * Expanded the default color set of `Alignments2` tracks to show
+   different shades of color indications of reads with missing mate
+   pairs, improperly aligned reads, and reads with mate pairs on
+   different reference sequences.  Thanks to Keiran Raine for
+   implementing this (issue #443).
+
+ * Added support to customize specific parts of the 'View details'
+   popups using callback functions. Thanks to Kieran Raine for the
+   idea and Colin Diesh for the implementation (issue #421).
+
+ * The File->Open tool will now can add files named `*.coverage.*` or
+   `*.density.*` as histograms to newly-opened tracks if the file
+   basenames match.  For example, if both `mysample.bam` and
+   `mysample.coverage.bw` are present, `mysample.coverage.bw` will be
+   added as a histogram source for `mysample.bam`.  Thanks to Keiran
+   Raine and Alexander Stoddard for suggesting this (issue #423).
+
+## Bug fixes
+
+ * Fixed a problem where the feature arrowhead would get stuck in the
+   middle of the screen at high zoom levels. Thanks to Colin Diesh for
+   the fix (issue #449).
+
+ * Disabled the FASTA download button in the "View details" page on
+   Safari (issue #412). This feature can't be supported in Safari at
+   this time, but it is still supported in most other browsers. Rob
+   Buels and Colin Diesh contributed fixes to this issue.
+
+ * Fixed a bug in the client-side GFF3 parser pointed out by Andrew
+   Warren.  Thanks Andrew! (issue #452).
+
+ * Fixed the problem of translation frames being switched around at
+   different zoom levels. Thanks to Kieron Taylor for the bug report
+   and Colin Diesh for the bugfix (issue #435)
+
+ * Fixed a bug where gene features in GFF tracks would not have
+   arrowhead markers. Thanks to Colin Diesh for finding and fixing 
+   this issue (issue #454)
+
+# Release 1.11.2     2014-02-10 19:11:33 EST5EDT
+
+## Minor improvements
+
+ * Added some user interface elements to set the height in pixels of a
+   single quantitative track, or of all visible quantitative tracks.
+   Thanks to Evan Briones for implementing this!
+
  * Added a `JBrowse/View/FeatureGlyph/Diamond` glyph that draws
    diamond-shaped features instead of boxes.  Thanks to OICR Co-op
    student Kevin Mohamed for implementing this!
@@ -10,6 +71,35 @@
    instead of a bunch of blank blocks when the reference sequence
    basepairs aren't available.  Thanks to Kevin Mohamed for
    implementing this (issue #422).
+
+ * Persistent session state is now stored on a per-dataset basis,
+   which improves user experience when switching between multiple
+   datasets in JBrowse.  Thanks to Richard Hayes for pointing this
+   issue out, and Kevin Mohamed for the fix (issue #410).
+
+ * "Hide sites not passing ..." settings in VCF track menus now show
+   the filter's long description when hovered over.  Thanks to Keiran
+   Raine for suggesting this (issue #420).
+
+ * Tweaked display of track labels and added a slight border at the
+   top edge of each track to make it more clear which track data
+   belongs to.  Thanks to Keiran Raine for suggesting this, and Kevin
+   Mohamed for the initial implementation (issue #432).
+
+ * Added a `--config` option to `flatfile-to-json.pl` that accepts
+   additional configuration variables that will be merged into the top
+   level of the track configuration.  Thanks to Mikael Brandström
+   Durling for the initial implementation of this.
+
+## Bug fixes
+
+ * `generate-names.pl` now indexes VCF files from track definitions in
+   `tracks.conf` files.  Thanks to Paul Halle for pointing this out
+   (issue #434).
+
+ * Added a missing dependency for the server side formatting tools on
+   List::MoreUtil 0.28 or higher.  Thanks to Cris Lawrence and Keiran
+   Raine for troubleshooting this!
 
 # Release 1.11.1     2014-01-07 15:48:39 EST5EDT
 

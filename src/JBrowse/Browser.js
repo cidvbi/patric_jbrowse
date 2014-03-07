@@ -961,11 +961,20 @@ openFileDialog: function() {
                     // our store configuration, and replace them with
                     // their names.
                     array.forEach( confs, function( conf ) {
+                        // do it for conf.store
                         var storeConf = conf.store;
                         if( storeConf && typeof storeConf == 'object' ) {
                             delete conf.store;
                             var name = this.addStoreConfig( storeConf.name, storeConf );
                             conf.store = name;
+                        }
+
+                        // do it for conf.histograms.store, if it exists
+                        storeConf = conf.histograms && conf.histograms.store;
+                        if( storeConf && typeof storeConf == 'object' ) {
+                            delete conf.histograms.store;
+                            var name = this.addStoreConfig( storeConf.name, storeConf );
+                            conf.histograms.store = name;
                         }
                     },this);
 
@@ -1778,38 +1787,43 @@ navigateTo: function(loc) {
     this.afterMilestone( 'initView', function() {
         // lastly, try to search our feature names for it
         thisB.searchNames( loc )
-           .then( function( found ) {
-                      if( found )
-                          return;
+            .then( function( found ) {
+                if( found )
+                    return;
 
-                      // if it's a foo:123..456 location, go there
-                      var location = typeof loc == 'string' ? Util.parseLocString( loc ) :  loc;
-                      // only call navigateToLocation() directly if location has start and end, otherwise try and fill in start/end from 'location' cookie
-                      if( location && ("start" in location) && ("end" in location)) {
-                          thisB.navigateToLocation( location );
-                          return;
-                      }
-                      // otherwise, if it's just a word (or a location with only a ref property), try to figure out what it is
-                      else {
-                          if( typeof loc != 'string')
-                              loc = loc.ref;
+                // if it's a foo:123..456 location, go there
+                if(!thisB.callLocation(loc)){return;}
 
-                          // is it just the name of one of our ref seqs?
-                          var ref = thisB.findReferenceSequence( loc );
-                          if( ref ) {
-                              thisB.navigateToLocation( { ref: ref.name } );
-                              return;
-                          }
-                      }
-
-                      new InfoDialog(
-                          {
-                              title: 'Not found',
-                              content: 'Not found: <span class="locString">'+loc+'</span>',
-                              className: 'notfound-dialog'
-                          }).show();
-                  });
+                new InfoDialog(
+                {
+                    title: 'Not found',
+                    content: 'Not found: <span class="locString">'+loc+'</span>',
+                    className: 'notfound-dialog'
+                }).show();
+            },
+            thisB.callLocation(loc));
     });
+},
+
+callLocation: function(loc){
+    var thisB=this;
+    var location = typeof loc == 'string' ? Util.parseLocString( loc ) :  loc;
+    // only call navigateToLocation() directly if location has start and end, otherwise try and fill in start/end from 'location' cookie
+    if( location && ("start" in location) && ("end" in location)) {
+        thisB.navigateToLocation( location );
+        return false;
+    }
+    // otherwise, if it's just a word (or a location with only a ref property), try to figure out what it is
+    else {
+        if( typeof loc != 'string')
+            loc = loc.ref;
+        // is it just the name of one of our ref seqs?
+        var ref = thisB.findReferenceSequence( loc );
+        if( ref ) {
+            thisB.navigateToLocation( { ref: ref.name } );
+            return false;
+        }
+    }
 },
 
 findReferenceSequence: function( name ) {
