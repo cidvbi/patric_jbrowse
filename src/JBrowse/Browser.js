@@ -68,7 +68,6 @@ define( [
             LazyTrie,
             NamesLazyTrieDojoDataStore,
             DojoDataStore,
-			NamesHashStore,
             FeatureFiltererMixin,
             GenomeView,
             Touch,

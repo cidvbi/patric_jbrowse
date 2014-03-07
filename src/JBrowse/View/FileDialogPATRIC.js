@@ -9,6 +9,12 @@ define( [
             'dijit/Dialog',
             'dojox/form/Uploader',
             'dojox/form/uploader/plugins/IFrame',
+
+            './FileDialog/TrackList/BAMDriver',
+            './FileDialog/TrackList/BigWigDriver',
+            './FileDialog/TrackList/GFF3Driver',
+            './FileDialog/TrackList/VCFTabixDriver',
+
             './FileDialog/ResourceList',
             './FileDialog/TrackList'
         ],
@@ -22,7 +28,13 @@ define( [
             dom,
             Dialog,
             Uploaded,
-            ignore,
+            IFramePlugin,
+
+            BAMDriver,
+            BigWigDriver,
+            GFF3Driver,
+            VCFTabixDriver,
+
             ResourceList,
             TrackList
         ) {
@@ -35,6 +47,15 @@ return declare( null, {
         this.browserSupports = {
             dnd: 'draggable' in document.createElement('span')
         };
+
+        this._fileTypeDrivers = [ new BAMDriver(), new BigWigDriver(), new GFF3Driver(), new VCFTabixDriver() ];
+    },
+
+    addFileTypeDriver: function( d ) {
+        this._fileTypeDrivers.unshift( d );
+    },
+    getFileTypeDrivers: function() {
+        return this._fileTypeDrivers.slice();
     },
 
     _makeActionBar: function( openCallback, cancelCallback ) {
@@ -42,7 +63,7 @@ return declare( null, {
             'div', {
                 className: 'dijitDialogPaneActionBar'
             });
-		
+
         var disChoices = this.trackDispositionChoice = [
             new RadioButton({ id: 'openImmediately',
                               value: 'openImmediately',
@@ -58,8 +79,8 @@ return declare( null, {
         dom.create('label', { "for": 'openImmediately', innerHTML: 'Open immediately' }, aux ),
         disChoices[1].placeAt(aux);
         dom.create('label', { "for": 'addToTrackList', innerHTML: 'Add to tracks' }, aux );
-		
-		
+
+
         new Button({ iconClass: 'dijitIconDelete', label: 'Cancel',
                      onClick: dojo.hitch( this, function() {
                                               cancelCallback && cancelCallback();
@@ -221,7 +242,7 @@ return declare( null, {
         return rl;
     },
     _makeTrackListControl: function() {
-        var tl = new TrackList({ browser: this.browser });
+        var tl = new TrackList({ browser: this.browser, fileDialog: this });
         this.trackList = tl;
         return tl;
     }
