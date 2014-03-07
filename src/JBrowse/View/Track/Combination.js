@@ -65,7 +65,7 @@ constructor: function( args ) {
                                  }
                                 ],
                 store:        "JBrowse/Store/SeqFeature/Combination",
-                allowedOps:   ["&", "U", "X", "S"],
+                allowedOps:   ["&", "U", "X", "S", "I", "E", "G"],
                 defaultOp :   "&"
             },
             "quantitative":        {
@@ -128,6 +128,9 @@ constructor: function( args ) {
             "S": "set subtraction",
             "M": "regular mask",
             "N": "inverse mask",
+			"I": "Identical features",
+			"E": "Equivalent features",
+			"G": "Merge features",
             // These four-digit codes are used by the CombinationDialog object to differentiate different types of masking operations.
             "0000": "combine without masking",
             "0020": "use new track as mask",

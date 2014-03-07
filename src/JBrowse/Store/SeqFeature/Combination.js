@@ -12,7 +12,7 @@ define([
            SimpleFeature,
            CombinationBaseStore
        ) {
-
+var dlog = function(){ console.error.apply(console, arguments); };
 return declare([CombinationBaseStore], {
 
 // An implementation of CombinationBase that deals with set-type features (without score, as in HTMLFeatures tracks).
@@ -46,6 +46,15 @@ opSpan: function(op, span1, span2, query) {
         case "S" :
             return this.andSpan( span1, this.notSpan(span2, query) );
             break;
+		case "I" :
+			return this.identicalSpan(span1, span2);
+			break;
+		case "E" :
+			return this.equivalentSpan(span1, span2);
+			break;
+		case "G" :
+			return this.mergeSpan(span1, span2);
+			break;
         default :
             console.error("Invalid boolean operation: "+op);
             break;
@@ -60,6 +69,7 @@ toSpan: function(features, query) {
 
     // Splits the spans based on which strand they're on, and remove overlap from each strand's spans, recombining at the end.
     return this._removeOverlap(this._strandFilter(rawSpans, +1)).concat(this._removeOverlap(this._strandFilter(rawSpans, -1)));
+    //return this._strandFilter(rawSpans, +1).concat(this._strandFilter(rawSpans, -1));
     
 },
 
@@ -124,10 +134,23 @@ orSpan: function( span1, span2 ){
 
     // given two sets of spans without internal overlap, outputs a set corresponding to their intersection
 andSpan: function( span1, span2){
-
     return this._computeIntersection(this._strandFilter(span1, 1), this._strandFilter(span2,1))
         .concat(this._computeIntersection(this._strandFilter(span1,-1), this._strandFilter(span2,-1)));
+},
 
+identicalSpan: function( span1, span2){
+    return this._computeIdentical(this._strandFilter(span1, 1), this._strandFilter(span2,1))
+        .concat(this._computeIdentical(this._strandFilter(span1,-1), this._strandFilter(span2,-1)));
+},
+
+equivalentSpan: function( span1, span2){
+    return this._computeEquivalent(this._strandFilter(span1, 1), this._strandFilter(span2,1))
+        .concat(this._computeEquivalent(this._strandFilter(span1, -1), this._strandFilter(span2,-1)));
+},
+
+mergeSpan: function( span1, span2){
+    return this._computeMerge(this._strandFilter(span1, 1), this._strandFilter(span2,1))
+        .concat(this._computeMerge(this._strandFilter(span1,-1), this._strandFilter(span2,-1)));
 },
 
     // This method should merge two sorted span arrays in O(n) time, which is better
@@ -184,6 +207,61 @@ _computeIntersection: function( span1, span2) {
     }
 
     return retSpans;
+},
+
+	// intersection of set should return identical features
+_computeIdentical: function( span1, span2) {
+	if(!span1.length || !span2.length) {
+		return [];
+	}
+	var retSpans = [];
+	var i = 0;
+	var j = 0;
+	while(i < span1.length && j < span2.length) {
+		//dlog("i="+i+", j="+j, span1[i], span2[j]);
+		if ( span1[i].start == span2[j].start && span1[i].end == span2[j].end) {
+			retSpans.push(span2[j]);
+			i++;
+			j++;
+		}
+		else if ( span1[i].start < span2[j].start ) {
+			i++;
+		} else {
+			j++;
+		}
+	}
+	return retSpans;
+},
+
+_computeEquivalent: function(span1, span2) {
+	if (!span1.length || !span2.length) {
+		return [];
+	}
+	var retSpans = [];
+	var i = 0;
+	var j = 0;
+	while (i < span1.length && j < span2.length) {
+		//dlog("i="+i+", j="+j, span1[i], span2[j]);
+		if ((span1[i].strand == 1 && span1[i].end == span2[j].end)
+			|| (span1[i].strand == -1 && span1[i].start == span2[j].start)) {
+			retSpans.push(span2[j]);
+			i++;j++;
+		}
+		else if (span1[i].start < span2[j].start) {
+			i++;
+		} 
+		else {
+			j++;
+		}
+	}
+	return retSpans;
+},
+
+_computeMerge: function( span1, span2) {
+    if(!span1.length && !span2.length) {
+        return [];
+    }
+    return this._sortedArrayMerge(span1,span2);
 },
 
 // Filters span set by strand, inverts the sets represented on each strand, and recombines.

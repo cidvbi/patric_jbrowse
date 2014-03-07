@@ -72,8 +72,8 @@ return declare( SeqFeatureStore,
             };
 
             var url = this.resolveUrl(
-		this._evalConf(this.urlTemplates.root),
-                { refseq: refName }
+                this.urlTemplates.root,
+                { refseq: refName, 'sid': this.refSeq.sid}
             );
 
             // fetch the trackdata

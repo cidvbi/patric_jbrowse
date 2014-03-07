@@ -1,10 +1,24 @@
-html, body {
+#GenomeBrowser table {
+	width: auto;
+	min-width: 0;
+}
+/*html, body {
     height: 100%;
     width: 100%;
     padding: 0;
     border: 0;
     font-size: 12px;
     font-family: Univers,Trebuchet MS,Helvetica,Arial,sans-serif;
+}
+*/
+
+.tundra .dijitDialogTitleBar {
+    padding-right: 25px;
+}
+
+.jbrowseStandaloneDatasetSelector {
+    margin-left: 2em;
+    font-size: 120%;
 }
 
 
@@ -137,12 +151,12 @@ input.icon {
     zoom: 1;
 }
 
-div.container {
+#GenomeBrowser div.container {
     position: absolute;
     z-index: 0;
 }
 
-div.dragWindow {
+#GenomeBrowser div.dragWindow {
     position:absolute;
     overflow: hidden;
     z-index: 1;
@@ -322,12 +336,15 @@ div.track {
     padding: 0;
     margin: 0;
     z-index: 0;
+<<<<<<< HEAD
 
     border-top: 1px solid #fafafa;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
     -ms-box-sizing: border-box;
+=======
+>>>>>>> 4f28ee45ff6425664fbd92f1bee66242085fbb34
 }
 div.pin_underlay {
     width: 100%;
@@ -829,7 +846,8 @@ a.dialog-new-window {
 
 /* styles for popup feature detail dialogs from tracks */
 .feature-detail {
-    width: 50em;
+/*    width: 50em;*/
+	width: 542px;
     color: #333;
 }
 .feature-detail .genotype_summary {

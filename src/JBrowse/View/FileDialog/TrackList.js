@@ -114,7 +114,7 @@ _updateDisplay: function() {
                             innerHTML: 'None'
                           },this.domNode);
     } else {
-        var table = dom.create('table', { innerHTML: '<tr class="head"><th>Name</th><th>Display</th><th></th></tr>'}, this.domNode );
+        var table = dom.create('table', { innerHTML: '<tr class="head"><th>Name</th><th>Display</th><th>Configuration</th></tr>'}, this.domNode );
 
         var trackTypes = this.browser.getTrackTypes();
 
@@ -140,7 +140,7 @@ _updateDisplay: function() {
             new Button({
                className: 'edit',
                title: 'edit configuration',
-               innerHTML: 'Edit Configuration',
+               innerHTML: 'Edit',
                onClick: function() {
                    new TrackConfigEditor( t )
                      .show( function( result) {

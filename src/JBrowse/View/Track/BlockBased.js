@@ -19,6 +19,7 @@ define( [
             'dijit/MenuItem',
             'dijit/CheckedMenuItem',
             'dijit/MenuSeparator',
+			'dijit/Tooltip',
             'JBrowse/Util',
             'JBrowse/Component',
             'JBrowse/FeatureFiltererMixin',
@@ -48,6 +49,7 @@ define( [
                   dijitMenuItem,
                   dijitCheckedMenuItem,
                   dijitMenuSeparator,
+				  dijitTooltip,
                   Util,
                   Component,
                   FeatureFiltererMixin,
@@ -755,6 +757,24 @@ return declare( [Component,DetailsMixin,FeatureFiltererMixin,Destroyable],
         return parent;
     },
 
+    _makeMouseOverHandler: function( inputSpec, context ) {
+        var track  = this;
+        var handler = function ( evt ) {
+
+            var ctx = context || this;
+            var spec = track._processMenuSpec( dojo.clone( inputSpec ), ctx );
+
+			new dijitTooltip({
+				connectId: [ ctx ],
+				position: ["below","above"],
+				label: spec.msg,
+				showDelay: 0
+			});
+        };
+
+        return handler;
+    },
+
     _makeClickHandler: function( inputSpec, context ) {
         var track  = this;
 
@@ -902,11 +922,11 @@ return declare( [Component,DetailsMixin,FeatureFiltererMixin,Destroyable],
                       });
               }
             },
-            { label: 'Delete track',
-              title: "delete this track",
+            { label: 'Remove track',
+              title: "remove this track",
               iconClass: 'dijitIconDelete',
               action: function() {
-                  new ConfirmDialog({ title: 'Delete track?', message: 'Really delete this track?' })
+                  new ConfirmDialog({ title: 'Remove track From View?', message: 'This will remove the selected track from the genome browser view. Do you want to continue?' })
                      .show( function( confirmed ) {
                           if( confirmed )
                               that.browser.publish( '/jbrowse/v1/v/tracks/delete', [that.config] );
@@ -1082,7 +1102,7 @@ return declare( [Component,DetailsMixin,FeatureFiltererMixin,Destroyable],
                     /\{([^}]+)\}/g,
                     function(match, group) {
                         var val = obj ? obj.get( group.toLowerCase() ) : undefined;
-                        if (val !== undefined)
+                        if (val !== undefined && val !== "null")
                             return val;
                         else {
                             return '';

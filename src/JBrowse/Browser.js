@@ -31,7 +31,7 @@ define( [
             'JBrowse/TouchScreenSupport',
             'JBrowse/ConfigManager',
             'JBrowse/View/InfoDialog',
-            'JBrowse/View/FileDialog',
+            'JBrowse/View/FileDialogPATRIC',
             'JBrowse/Model/Location',
             'JBrowse/View/LocationChoiceDialog',
             'JBrowse/View/Dialog/SetHighlight',
@@ -68,6 +68,7 @@ define( [
             LazyTrie,
             NamesLazyTrieDojoDataStore,
             DojoDataStore,
+			NamesHashStore,
             FeatureFiltererMixin,
             GenomeView,
             Touch,
@@ -159,8 +160,8 @@ constructor: function(params) {
                            //    if no URL track param then add last viewed tracks via tracks cookie
                            //    if no URL param and no tracks cookie, then use defaultTracks 
                            if (thisB.config.forceTracks)   { tracksToShow = tracksToShow.concat(thisB.config.forceTracks.split(",")); } 
-                           else if (thisB.cookie("tracks")) { tracksToShow = tracksToShow.concat(thisB.cookie("tracks").split(",")); }
                            else if (thisB.config.defaultTracks) { tracksToShow = tracksToShow.concat(thisB.config.defaultTracks.split(",")); }
+                           else if (thisB.cookie("tracks")) { tracksToShow = tracksToShow.concat(thisB.cookie("tracks").split(",")); }
                            // currently, force "DNA" _only_ if no other guides as to what to show?
                            //    or should this be changed to always force DNA to show?
                            if (tracksToShow.length == 0) { tracksToShow.push("DNA"); }
@@ -199,7 +200,7 @@ version: function() {
     // when a build is put together, the build system assigns a string
     // to the variable below.
     var BUILD_SYSTEM_JBROWSE_VERSION;
-    return BUILD_SYSTEM_JBROWSE_VERSION || 'development';
+    return BUILD_SYSTEM_JBROWSE_VERSION || 'PATRIC';
 }.call(),
 
 
@@ -372,6 +373,7 @@ fatalError: function( error ) {
                   .placeAt( this.container );
         } else {
             var container = this.container || document.body;
+			/*
             container.innerHTML = ''
                 + '<div class="fatal_error">'
                 + '  <h1>Congratulations, JBrowse is on the web!</h1>'
@@ -398,7 +400,8 @@ fatalError: function( error ) {
                                .innerHTML = 'However, it appears you have successfully run <code>./setup.sh</code>, so you can see the <a href="?data=sample_data/json/volvox" target="_blank">Volvox test data here</a>.';
                        } catch(e) {}
                    });
-
+			*/
+			container.innerHTML = '<div class="fatal_error"><h2>Data is not available for this feature.</h2></div>';
             this.renderedFatalErrors = true;
         }
     } else {
@@ -585,13 +588,14 @@ initView: function() {
             if( this.config.datasets && this.config.dataset_id ) {
                 this.renderDatasetSelect( menuBar );
             } else {
-
+				/*
                 this.poweredByLink = dojo.create('a', {
                                 className: 'powered_by',
                                 innerHTML: this.browserMeta().title,
                                 title: 'powered by JBrowse'
                             }, menuBar );
                 thisObj.poweredBy_clickHandle = dojo.connect(this.poweredByLink, "onclick", dojo.hitch( aboutDialog, 'show') );
+      		  	*/
             }
 
             // make the file menu
@@ -604,9 +608,8 @@ initView: function() {
                                             onClick: dojo.hitch( this, 'openFileDialog' )
                                         })
                                   );
-
-            this.fileDialog = new FileDialog({ browser: this });
-
+			this.fileDialog = new FileDialog({ browser: this });
+  /*
             this.addGlobalMenuItem( 'file', new dijitMenuItem(
                 {
                     id: 'menubar_combotrack', 
@@ -614,7 +617,7 @@ initView: function() {
                     iconClass: 'dijitIconSample',
                     onClick: dojo.hitch(this, 'createCombinationTrack')
                 }));
-
+*/
             this.renderGlobalMenu( 'file', {text: 'File'}, menuBar );
 
             // make the view menu
@@ -703,7 +706,16 @@ initView: function() {
                                             onClick: showHelp
                                         })
                                   );
-
+	        this.addGlobalMenuItem( 'help',
+	                                new dijitMenuItem(
+	                                      {
+	                                          label: 'FAQ',
+	                                          //iconClass: 'jbrowseIconHelp',
+	                                          onClick: function() {
+												window.open('http://enews.patricbrc.org/faqs/genome-browser-faqs/');
+											}
+	                                      })
+	                                );
             this.renderGlobalMenu( 'help', {}, menuBar );
         }
 
@@ -845,7 +857,7 @@ browserMeta: function() {
     about.title = about.title || 'JBrowse';
 
     var verstring = this.version && this.version.match(/^\d/)
-        ? this.version : '(development version)';
+        ? this.version : '(PATRIC version)';
 
     if( about.description ) {
         about.description += '<div class="powered_by">'
@@ -1420,10 +1432,6 @@ loadConfig: function () {
         c.getFinalConfig()
          .then( dojo.hitch(this, function( finishedConfig ) {
                                this.config = finishedConfig;
-
-                               //apply document.domain from a loaded conf file
-                               if( this.config.documentDomain )
-                                   document.domain=this.config.documentDomain;
 
                                // pass the tracks configurations through
                                // addTrackConfigs so that it will be indexed and such
@@ -2020,7 +2028,7 @@ makeShareLink: function () {
     // make the share link
     var button = new dijitButton({
             className: 'share',
-            innerHTML: '<span class="icon"></span> Share',
+            innerHTML: '<span class="icon"></span> Link',
             title: 'share this view',
             onClick: function() {
                 URLinput.value = shareURL;
@@ -2603,6 +2611,7 @@ showRegionAfterSearch: function( location ) {
 showRegionWithHighlight: function() { // backcompat
     return this.showRegionAfterSearch.apply( this, arguments );
 }
+
 
 });
 });

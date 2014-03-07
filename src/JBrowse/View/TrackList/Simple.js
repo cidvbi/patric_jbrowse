@@ -145,7 +145,59 @@ return declare( 'JBrowse.View.TrackList.Simple', _TextFilterMixin,
             leftPane
         );
 
-        this._makeTextFilterNodes( trackListDiv );
+       this.textFilterDiv = dom.create( 'div', {
+                                            className: 'textfilter',
+                                            style: {
+                                                width: '100%',
+                                                position: 'relative',
+                                                overflow: 'hidden'
+                                            }
+                                        }, trackListDiv );
+       this.textFilterInput = dom.create(
+            'input',
+            { type: 'text',
+              style: {
+                  paddingLeft: '18px',
+                  height: '24px',
+                  width: '80%'
+              },
+              placeholder: 'filter by text',
+              onkeypress: dojo.hitch( this, function( evt ) {
+                  if( evt.keyCode == keys.ESCAPE ) {
+                      this.textFilterInput.value = '';
+                  }
+
+                  if( this.textFilterTimeout )
+                      window.clearTimeout( this.textFilterTimeout );
+                  this.textFilterTimeout = window.setTimeout(
+                      dojo.hitch( this, function() {
+                                      this._updateTextFilterControl();
+                                      this._textFilter( this.textFilterInput.value );
+                                  }),
+                      500
+                  );
+                  this._updateTextFilterControl();
+
+                  evt.stopPropagation();
+              })
+            },
+            dom.create('div',{ style: 'overflow: show;' }, this.textFilterDiv )
+        );
+
+        // make a "clear" button for the text filtering input
+        this.textFilterClearButton = dom.create('div', {
+            className: 'jbrowseIconCancel',
+            onclick: dojo.hitch( this, function() {
+                this._clearTextFilterControl();
+                this._textFilter( this.textFilterInput.value );
+            }),
+            style: {
+                position: 'absolute',
+                left: '4px',
+                top: '6px'
+            }
+        }, this.textFilterDiv );
+
         this._updateTextFilterControl();
 
         this.trackListWidget = new dndSource(

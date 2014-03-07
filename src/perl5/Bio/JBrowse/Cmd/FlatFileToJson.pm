@@ -51,7 +51,6 @@ sub option_definitions {
         "subfeatureClasses=s",
         "maxLookback=i",
         "clientConfig=s",
-        "config=s",
         "metadata=s",
         "thinType=s",
         "thickType=s",
@@ -87,7 +86,7 @@ sub run {
         $self->opt( nclChunk => $nclChunk );
     }
 
-    for my $optname ( qw( clientConfig subfeatureClasses metadata config ) ) {
+    for my $optname ( qw( clientConfig subfeatureClasses metadata ) ) {
         if( my $o = $self->opt($optname) ) {
             $self->opt( $optname => Bio::JBrowse::JSON->new->decode( $o ));
         }

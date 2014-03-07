@@ -404,7 +404,7 @@ return declare( 'JBrowse.View.TrackList.Faceted', null,
         // if the selection is too big
         var origSelectRange = grid.selection.selectRange;
         grid.selection.selectRange = function( inFrom, inTo ) {
-            var selectionLimit = 30;
+            var selectionLimit = 40;
             if( inTo - inFrom > selectionLimit ) {
                 alert( "Too many tracks selected, please select fewer than "+selectionLimit+" tracks." );
                 return undefined;

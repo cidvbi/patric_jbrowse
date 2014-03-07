@@ -55,7 +55,7 @@ var BamFile = declare( null,
         this.data  = args.data;
         this.bai   = args.bai;
 
-        this.chunkSizeLimit = args.chunkSizeLimit || 5000000;
+        this.chunkSizeLimit = args.chunkSizeLimit || 50000000;
     },
 
     init: function( args ) {

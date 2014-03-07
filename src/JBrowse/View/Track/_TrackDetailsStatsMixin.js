@@ -19,7 +19,8 @@ return declare( null, {
         //     { ref: this.refSeq.name, start: this.refSeq.start, end: this.refSeq.end },
         this.store.getGlobalStats(
             function( stats ) {
-                d.resolve( thisB.inherited( args, [ { "Stats (current reference sequence)": stats } ] ) );
+                //d.resolve( thisB.inherited( args, [ { "Stats (current reference sequence)": stats } ] ) );
+				d.resolve( thisB.inherited( args, [ {} ] ) );
             },
             lang.hitch( d, 'reject' )
         );
