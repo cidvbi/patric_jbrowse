@@ -52,6 +52,9 @@ opSpan: function(op, span1, span2, query) {
 		case "E" :
 			return this.equivalentSpan(span1, span2);
 			break;
+		case "Q" :
+			return this.equivalentSubtractionSpan(span1, span2);
+			break;
 		case "G" :
 			return this.mergeSpan(span1, span2);
 			break;
@@ -146,6 +149,11 @@ identicalSpan: function( span1, span2){
 equivalentSpan: function( span1, span2){
     return this._computeEquivalent(this._strandFilter(span1, 1), this._strandFilter(span2,1))
         .concat(this._computeEquivalent(this._strandFilter(span1, -1), this._strandFilter(span2,-1)));
+},
+
+equivalentSubtractionSpan: function( span1, span2){
+    return this._computeEquivalentSubtraction(this._strandFilter(span1, 1), this._strandFilter(span2,1))
+        .concat(this._computeEquivalentSubtraction(this._strandFilter(span1, -1), this._strandFilter(span2,-1)));
 },
 
 mergeSpan: function( span1, span2){
@@ -262,6 +270,41 @@ _computeMerge: function( span1, span2) {
         return [];
     }
     return this._sortedArrayMerge(span1,span2);
+},
+
+_computeEquivalentSubtraction: function(span1, span2) {
+    var retSpans = [];
+    var eqvSpans = this._computeEquivalent(span1, span2);
+    //dlog(span1, eqvSpans);
+
+    for (var i = 0; i < span1.length; i++) {
+        var isIncluded = false;
+        for (var j = 0; j < eqvSpans.length; j++) {
+            //dlog("("+i+", "+j+")", span1[i], eqvSpans[j]);
+            if (span1[i].strand == 1) {
+                if (span1[i].end == eqvSpans[j].end) {
+                    isIncluded = true;
+                }
+                if (span1[i].end < eqvSpans[j].start) {
+                    break;
+                }
+            }
+            else if (span1[i].strand == -1) {
+                if (span1[i].start == eqvSpans[j].start) {
+                    isIncluded = true;
+                }
+                else if (span1[i].start < eqvSpans[j].end) {
+                    break;
+                }
+            }
+        }
+        if (isIncluded == false) {
+            retSpans.push(span1[i]);
+        }
+    }
+    //dlog(retSpans);
+
+    return retSpans;
 },
 
 // Filters span set by strand, inverts the sets represented on each strand, and recombines.
