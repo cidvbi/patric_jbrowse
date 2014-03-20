@@ -45,9 +45,9 @@ return declare( FeatureDescriptionMixin, {
                         content: dojo.hitch( this, 'defaultFeatureDetail' ) };
         }
 
-		if ( ! eventConf.mouseover ) {
-			eventConf.mouseover = { action: "tooltip", msg: this.config.tooltip };
-		}
+        if ( ! eventConf.mouseover ) {
+          eventConf.mouseover = { action: "tooltip", msg: this.config.tooltip };
+        }
 
         // process the configuration to set up our event handlers
         this.eventHandlers = (function() {
@@ -66,7 +66,7 @@ return declare( FeatureDescriptionMixin, {
             return handlers;
         }).call(this);
         this.eventHandlers.click = this._makeClickHandler( this.eventHandlers.click );
-		this.eventHandlers.mouseover = this._makeMouseOverHandler( this.eventHandlers.mouseover );
+        this.eventHandlers.mouseover = this._makeMouseOverHandler( this.eventHandlers.mouseover );
     },
 
     /**
@@ -79,45 +79,64 @@ return declare( FeatureDescriptionMixin, {
         //this._renderCoreDetails( track, f, featDiv, container );
         this._renderPATRICDetails( track, f, featDiv, container );
 
-        //this._renderAdditionalTagsDetail( track, f, featDiv, container );
+        //console.error(track);
+
+        if (track.config.type == "JBrowse/View/Track/CanvasFeatures") {
+          this._renderAdditionalTagsDetail( track, f, featDiv, container );
+        }
 
         this._renderUnderlyingReferenceSequence( track, f, featDiv, container );
 
-        //this._renderSubfeaturesDetail( track, f, featDiv, container );
+        if (track.config.type == "CanvasFeatures") {
+          this._renderSubfeaturesDetail( track, f, featDiv, container );
+        }
 
         return container;
     },
 
     _renderPATRICDetails: function( track, f, featDiv, container ) {
         var coreDetails = dojo.create('div', { className: 'core', innerHTML: '<h2 class="sectiontitle">Feature Details</h2>' }, container );
-	
-		var coreInfo = "";
-		coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + f.get("id") + "\" target=_blank>" + f.get("locus_tag");
-		if (f.get("refseq") != undefined && f.get("refseq") != "") {
-			coreInfo += " | " + f.get("refseq");
-		}
-		if (f.get("gene") != undefined && f.get("gene") != "") {
-			 coreInfo += " | " + f.get("gene");
-		}
-		coreInfo += "</a>";
-		
-		if (f.get("product") != "") {
-			coreInfo += "<br>" + f.get("product");
-		}
-		coreInfo += "<br>" + f.get("type") + ": " + f.get("start_str") + " .. " + f.get("end") + " (" + f.get("strand_str") + ")";
-		        	
-		domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
 
-		if (track.name == "PATRICGenes" && f.get("type") == "CDS") {
-			var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feature, view:</h2>' }, container );
-			var xtrnalHtml = "";
-			xtrnalHtml += "<a href=\"GenomeBrowser?cType=feature&cId=" + f.get("id") + "&loc=" + (f.get("start")-1000) + ".." + (f.get("end")+1000) + "&tracks=DNA,PATRICGenes\" target=_blank>Genome Browser</a>";
-			xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + f.get("id") + "&tracks=&regions=5&window=10000&loc=1..10000\" target=_blank>Compare Region Viewer</a>";
-			xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + f.get("id") + "\" target=_blank>Pathways</a>";
-			xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + f.get("id") + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
-			xtrnalHtml += "<br><a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + f.get("id") + "\" target=_blank>Correlated genes</a>";
-			domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
-		}
+        var _coreID = {}, _coreProduct = "", _coreLoc = {};
+        
+        _coreID.na_feature_id = f.get("id") || f.get("na_feature_id") || "";
+        _coreID.locus_tag = f.get("locus_tag") || f.get("gene_id");
+        _coreID.refseq = (f.get("refseq") != undefined && f.get("refseq") != "null" && f.get("refseq") != "")? " | " + f.get("refseq") : "";
+        _coreID.gene =  (f.get("gene") != undefined && f.get("gene") != "null" && f.get("gene") != "")? " | " + f.get("gene") : "";
+        
+        _coreProduct = (f.get("product") != undefined && f.get("product") != "")? f.get("product") : "";
+        
+        _coreLoc.type = f.get("type") || "";
+        _coreLoc.start = f.get("start_str") || (f.get("start") + 1);
+        _coreLoc.end = f.get("end");
+        _coreLoc.strand = f.get("strand_str") || (f.get("strand")==1)? "+" : "-";
+        
+        var coreInfo = "";
+        
+        if (_coreID.na_feature_id != "") {
+          coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + _coreID.na_feature_id + "\" target=_blank>" + _coreID.locus_tag + _coreID.refseq + _coreID.gene + "</a>";
+        } else {
+          coreInfo = _coreID.locus_tag + _coreID.refseq + _coreID.gene;
+        }
+
+        if (_coreProduct != "") {
+          coreInfo += "<br>" + _coreProduct;
+        }
+        
+        coreInfo += "<br>" + _coreLoc.type + ": " + _coreLoc.start + " .. " + _coreLoc.end + " (" + _coreLoc.strand + ")";
+
+        domConstruct.create('div', {className: 'detail value', innerHTML: coreInfo}, coreDetails );
+
+        if (track.name == "PATRICGenes" && _coreLoc.type == "CDS") {
+          var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feature, view:</h2>' }, container );
+          var xtrnalHtml = "";
+          xtrnalHtml += "<a href=\"GenomeBrowser?cType=feature&cId=" + _coreID.na_feature_id + "&loc=" + (_coreLoc.start - 1000) + ".." + (_coreLoc.end + 1000) + "&tracks=DNA,PATRICGenes\" target=_blank>Genome Browser</a>";
+          xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + _coreID.na_feature_id + "&tracks=&regions=5&window=10000&loc=1..10000\" target=_blank>Compare Region Viewer</a>";
+          xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + _coreID.na_feature_id + "\" target=_blank>Pathways</a>";
+          xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + _coreID.na_feature_id + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
+          xtrnalHtml += "<br><a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + _coreID.na_feature_id + "\" target=_blank>Correlated genes</a>";
+          domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
+        }
     },
 
     _renderCoreDetails: function( track, f, featDiv, container ) {
@@ -176,8 +195,8 @@ return declare( FeatureDescriptionMixin, {
         // render the sequence underlying this feature if possible
         //var field_container = dojo.create('div', { className: 'field_container feature_sequence' }, container );
         //dojo.create( 'h2', { className: 'field feature_sequence', innerHTML: 'Region sequence', title: 'reference sequence underlying this '+(f.get('type') || 'feature') }, field_container );
-		var field_container = dojo.create('div', { className: 'additional' }, container );
-		dojo.create( 'h2', { className: 'sectiontitle', innerHTML: 'NA Sequence', title: 'reference sequence underlying this '+(f.get('type') || 'feature') }, field_container );
+        var field_container = dojo.create('div', { className: 'additional' }, container );
+        dojo.create( 'h2', { className: 'sectiontitle', innerHTML: 'NA Sequence', title: 'reference sequence underlying this '+(f.get('type') || 'feature') }, field_container );
         var valueContainerID = 'feature_sequence'+this._uniqID();
         var valueContainer = dojo.create(
             'div', {
