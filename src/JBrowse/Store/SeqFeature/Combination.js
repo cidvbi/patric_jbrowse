@@ -55,6 +55,9 @@ opSpan: function(op, span1, span2, query) {
 		case "Q" :
 			return this.equivalentSubtractionSpan(span1, span2);
 			break;
+		case "R" :
+			return this.mergeSpan(this.equivalentSubtractionSpan(span1, span2), this.equivalentSubtractionSpan(span2, span1));
+			break;
 		case "G" :
 			return this.mergeSpan(span1, span2);
 			break;
@@ -72,9 +75,25 @@ toSpan: function(features, query) {
 
     // Splits the spans based on which strand they're on, and remove overlap from each strand's spans, recombining at the end.
     return this._removeOverlap(this._strandFilter(rawSpans, +1)).concat(this._removeOverlap(this._strandFilter(rawSpans, -1)));
-    //return this._strandFilter(rawSpans, +1).concat(this._strandFilter(rawSpans, -1));
-    
 },
+
+_keepOverlap: function(op) {
+	return (["E", "Q", "R", "G"].indexOf(op) > -1)? true: false;
+},
+
+toSpan: function(features, query, op) {
+    // strip away extra stuff and keep only the relevant feature data
+    var rawSpans = this._rawToSpan(features,query);
+
+    if (this._keepOverlap(op)) {
+        // dlog(op);
+        return this._strandFilter(rawSpans, +1).concat(this._strandFilter(rawSpans, -1));
+    } else {
+        // Splits the spans based on which strand they're on, and remove overlap from each strand's spans, recombining at the end.
+        return this._removeOverlap(this._strandFilter(rawSpans, +1)).concat(this._removeOverlap(this._strandFilter(rawSpans, -1)));
+    }
+},
+
 
 _rawToSpan: function( features, query ) {
     // given a set of features, makes a set of spans with the
@@ -250,16 +269,33 @@ _computeEquivalent: function(span1, span2) {
 	var j = 0;
 	while (i < span1.length && j < span2.length) {
 		//dlog("i="+i+", j="+j, span1[i], span2[j]);
-		if ((span1[i].strand == 1 && span1[i].end == span2[j].end)
-			|| (span1[i].strand == -1 && span1[i].start == span2[j].start)) {
-			retSpans.push(span2[j]);
-			i++;j++;
+		if (span1[i].strand == 1) {
+			if (span1[i].end == span2[j].end) {
+				retSpans.push(span2[j]);
+				i++;j++;
+			}
+			else if (span1[i].end < span2[j].end) {
+				i++;
+			}
+			else if (i < (span1.length-1) && span1[i+1].end == span2[j].end) {
+				i++;
+			}
+			else {
+				j++;
+			}
 		}
-		else if (span1[i].start < span2[j].start) {
-			i++;
-		} 
-		else {
-			j++;
+		else if (span1[i].strand == -1) {
+			//dlog("i="+i+", j="+j, span1[i], span2[j]);
+			if (span1[i].start == span2[j].start) {
+				retSpans.push(span2[j]);
+				i++;j++;
+			}
+			else if (span1[i].start < span2[j].start) {
+				i++;
+			} 
+			else {
+				j++;
+			}
 		}
 	}
 	return retSpans;
@@ -280,20 +316,23 @@ _computeEquivalentSubtraction: function(span1, span2) {
     for (var i = 0; i < span1.length; i++) {
         var isIncluded = false;
         for (var j = 0; j < eqvSpans.length; j++) {
-            //dlog("("+i+", "+j+")", span1[i], eqvSpans[j]);
             if (span1[i].strand == 1) {
+                //dlog("+("+i+", "+j+")", span1[i].end, eqvSpans[j].end);
                 if (span1[i].end == eqvSpans[j].end) {
                     isIncluded = true;
+                    break;
                 }
-                if (span1[i].end < eqvSpans[j].start) {
+                else if (span1[i].end < eqvSpans[j].start) {
                     break;
                 }
             }
             else if (span1[i].strand == -1) {
+                //dlog("-("+i+", "+j+")", span1[i].start, eqvSpans[j].start);
                 if (span1[i].start == eqvSpans[j].start) {
                     isIncluded = true;
+                    break;
                 }
-                else if (span1[i].start < eqvSpans[j].end) {
+                else if (span1[i].end < eqvSpans[j].start) {
                     break;
                 }
             }

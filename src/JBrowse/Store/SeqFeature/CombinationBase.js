@@ -172,10 +172,42 @@ evalTree: function(featureArrays, tree, query) {
     } else if(!tree.hasRight()) {
         return this.toSpan(featureArrays[tree.left().get().name], query);
     }
+    //console.error(tree.get("Value"));
+    if (this._keepOverlap != undefined && this._keepOverlap(tree.get("Value"))) {
+        return this.opSpan(
+                            tree.get(),
+                            this.evalTree(featureArrays, tree.left(), query, op),
+                            this.evalTree(featureArrays, tree.right(), query, op),
+                            query
+                        );
+    }
+    else {
     return this.opSpan(
                         tree.get(),
                         this.evalTree(featureArrays, tree.left(), query),
                         this.evalTree(featureArrays, tree.right(), query),
+                        query
+                    );
+    }
+},
+
+evalTree: function(featureArrays, tree, query, op) {
+    if(!tree) {
+        return false;
+    } else if(tree.isLeaf()) {
+        return this.toSpan(featureArrays[tree.get().name], query, op);
+    } else if(!tree.hasLeft()) {
+        return this.toSpan(featureArrays[tree.right().get().name], query, op);
+    } else if(!tree.hasRight()) {
+        return this.toSpan(featureArrays[tree.left().get().name], query, op);
+    }
+    if (op == undefined) {
+        op = tree.get("Value");
+    }
+    return this.opSpan(
+                        tree.get(),
+                        this.evalTree(featureArrays, tree.left(), query, op),
+                        this.evalTree(featureArrays, tree.right(), query, op),
                         query
                     );
 },
