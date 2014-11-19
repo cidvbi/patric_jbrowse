@@ -105,6 +105,12 @@ return declare(
         this.showTooltips = this.config.style.showTooltips;
         this.displayMode = this.config.displayMode;
 
+        //setup displayMode style cookie
+        var cookie = this.browser.cookie("track-" + this.name);
+        if (cookie) {
+            this.displayMode = cookie;
+        }
+
         this._setupEventHandlers();
     },
 
@@ -112,7 +118,7 @@ return declare(
         return Util.deepUpdate(
             lang.clone( this.inherited(arguments) ),
             {
-            maxFeatureScreenDensity: 3,
+            maxFeatureScreenDensity: 0.5,
 
             // default glyph class to use
             glyph: lang.hitch( this, 'guessGlyphType' ),
@@ -140,7 +146,9 @@ return declare(
                 _defaultDescriptionScale: 120,
 
                 showLabels: true,
-                showTooltips: true
+                showTooltips: true,
+                label: 'name,id',
+                description: 'note, description'
             },
 
             displayMode: 'normal',
@@ -343,7 +351,7 @@ return declare(
             this.setLabel( this.key );
         }
 
-        var numBins = this.config.histograms.binsPerBlock || 200;
+        var numBins = this.config.histograms.binsPerBlock || 25;
         var blockSizeBp = Math.abs( args.rightBase - args.leftBase );
         var basesPerBin = blockSizeBp / numBins;
         var query = {
@@ -428,6 +436,27 @@ return declare(
             );
         this.heightUpdate( height, viewArgs.blockIndex );
         var ctx = c.getContext('2d');
+
+        // finally query the various pixel ratios
+        var ratio = Util.getResolution( ctx, this.browser.config.highResolutionMode );
+        // upscale canvas if the two ratios don't match
+        if ( this.browser.config.highResolutionMode != 'disabled' && ratio >= 1 )
+        {
+            var oldWidth = c.width;
+            var oldHeight = c.height;
+
+            c.width = oldWidth * ratio;
+            c.height = oldHeight * ratio;
+
+            c.style.width = oldWidth + 'px';
+            c.style.height = oldHeight + 'px';
+
+            // now scale the context to counter
+            // the fact that we've manually scaled
+            // our canvas element
+            ctx.scale(ratio, ratio);
+        }
+
         ctx.fillStyle = this.config.histograms.color;
         for( var i = 0; i<features.length; i++ ) {
             var feature = features[i];
@@ -589,6 +618,29 @@ return declare(
                                                 },
                                                 block.domNode
                                             );
+                                        var ctx = c.getContext('2d');
+
+                                        // finally query the various pixel ratios
+                                        var ratio = Util.getResolution( ctx, thisB.browser.config.highResolutionMode );
+                                        // upscale canvas if the two ratios don't match
+                                        if ( thisB.browser.config.highResolutionMode != 'disabled' && ratio >= 1 ) {
+
+                                            var oldWidth = c.width;
+                                            var oldHeight = c.height;
+
+                                            c.width = oldWidth * ratio;
+                                            c.height = oldHeight * ratio;
+
+                                            c.style.width = oldWidth + 'px';
+                                            c.style.height = oldHeight + 'px';
+
+                                            // now scale the context to counter
+                                            // the fact that we've manually scaled
+                                            // our canvas element
+                                            ctx.scale(ratio, ratio);
+                                        }
+
+
 
                                         if( block.maxHeightExceeded )
                                             thisB.markBlockHeightOverflow( block );
@@ -826,6 +878,15 @@ return declare(
                         this.labelTooltip.style.display = 'block';
                         var labelSpan = this.labelTooltip.childNodes[0],
                             descriptionSpan = this.labelTooltip.childNodes[1];
+
+                        if( this.config.onClick&&this.config.onClick.label ) {
+                            var context = lang.mixin( { track: this, feature: feature, callbackArgs: [ this, feature ] } );
+                            labelSpan.style.display = 'block';
+                            labelSpan.style.font = label.font;
+                            labelSpan.style.color = label.fill;
+                            labelSpan.innerHTML = this.template( feature, this._evalConf( context, this.config.onClick.label, "label" ) );
+                            return;
+                        }
                         if( label ) {
                             labelSpan.style.display = 'block';
                             labelSpan.style.font = label.font;
@@ -892,6 +953,9 @@ return declare(
                     thisB.hideAll();
                     thisB.genomeView.showVisibleBlocks(true);
                     thisB.makeTrackMenu();
+
+                    // set cookie for displayMode
+                    thisB.browser.cookie('track-' + thisB.name, thisB.displayMode);
                 }
             };
         });

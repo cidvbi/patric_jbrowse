@@ -15,6 +15,7 @@ RELEASE_MIN_DIR  = $(BASEDIR)/$(RELEASE_MIN)/
 
 ZIP=zip -q --symlinks -r
 UNZIP=unzip -q
+SHASUM=shasum
 
 
 all: docs bin/wig2png
@@ -24,14 +25,19 @@ release-version.txt:
 
 release: release-version.txt release-normal release-min release-normal-test release-min-test release-notes.html
 	ls -lh *.zip
-	sha1sum *.zip
+	$(SHASUM) *.zip
+
+release-notest: release-version.txt release-normal release-min release-notes.html
+	ls -lh *.zip
+	$(SHASUM) *.zip
+
 
 release-notes.html: release-notes.txt
 	build/format_release_notes.pl $< > $@
 
 release-normal: superclean $(JS_SRCFILES)
 	mkdir $(RELEASE_FULL_DIR);
-	cp -r `ls -1d * | grep -v $(RELEASE_FULL)` $(RELEASE_FULL_DIR);
+	cp -R `ls -1d * | grep -v $(RELEASE_FULL)` $(RELEASE_FULL_DIR);
 	rm -rf $(RELEASE_FULL_DIR)/src/*/.git $(RELEASE_FULL_DIR)/$(RELEASE_FULL) $(RELEASE_FULL_DIR)/src/util $(RELEASE_FULL_DIR)/build;
 
         # version-stamp Browser.js
@@ -52,6 +58,7 @@ release-normal-test: release-normal
 	cd $(RELEASE_FULL_DIR) \
 	  && ./setup.sh \
 	  && prove -Isrc/perl5 -r -j3 tests/perl_tests;
+
 
 PLUGINS = $(wildcard $(PLUGINDIR)/*)
 
@@ -77,27 +84,27 @@ release-min: release-normal plugins-min
 	for P in src docs/jsdoc tests tests_extended build; do \
 	    rm -rf $(RELEASE_MIN_DIR)$$P; \
 	done;
-	for P in 	src/wig2png/ \
+	for P in 	src/wig2png \
 			src/dojo/dojo.js \
-			`find src/ -name nls -and -type d -and -not -wholename '*/tests/*'` \
-			src/dojo/resources/ \
-			src/dojox/grid/ \
+			`find src/ -name nls -and -type d -and -not -wholename '*/tests/*' | grep -v src/dojox/grid` \
+			src/dojo/resources \
+			src/dojox/grid \
 			src/dojox/gfx/vml.js \
-			src/dojox/form/resources/ \
+			src/dojox/form/resources \
 			src/dojox/gfx/vml_attach.js \
-			src/dijit/themes/tundra/ \
-			src/dijit/form/templates/ \
-			src/dijit/icons/ \
-			src/dijit/templates/ \
-			src/JBrowse/ \
+			src/dijit/themes/tundra \
+			src/dijit/form/templates \
+			src/dijit/icons \
+			src/dijit/templates \
+			src/JBrowse \
 			src/perl5 \
 			src/dgrid/css \
 	; do \
 	    mkdir -p `dirname $(RELEASE_MIN_DIR)$$P`; \
 	    if [ -d $$P ]; then \
-		    cp -r $(RELEASE_FULL_DIR)$$P $(RELEASE_MIN_DIR)`dirname $$P`; \
+		    cp -R $(RELEASE_FULL_DIR)$$P/ $(RELEASE_MIN_DIR)$$P; \
 	    else \
-		    cp -r $(RELEASE_FULL_DIR)$$P $(RELEASE_MIN_DIR)$$P; \
+		    cp -R $(RELEASE_FULL_DIR)$$P $(RELEASE_MIN_DIR)$$P; \
 	    fi;\
 	done
 
@@ -112,7 +119,9 @@ release-min-test: release-min
         # unzip to make sure we are looking at what's really in the releases
 	rm -rf $(RELEASE_MIN_DIR);
 	$(UNZIP) $(RELEASE_MIN).zip
-	cp -r docs tests* sample_data $(RELEASE_MIN_DIR);
+	rm $(RELEASE_MIN_DIR)/sample_data/raw/volvox
+	rm $(RELEASE_MIN_DIR)/sample_data/json/modencode/tracks/volvox_microarray.wig
+	cp -R docs tests* sample_data $(RELEASE_MIN_DIR);
 	cd $(RELEASE_MIN_DIR) && ./setup.sh
 	cd $(RELEASE_MIN_DIR) && prove -Isrc/perl5 -r -j3 tests/perl_tests;
 
@@ -124,7 +133,7 @@ src/wig2png/configure: src/wig2png/configure.in
 	cd src/wig2png && autoconf
 
 superclean: clean
-	-git clean -fdx
+	-git clean -fdx --exclude=plugins/
 
 clean:
 	rm -rf docs/jsdoc *-min.js release-notes.html;

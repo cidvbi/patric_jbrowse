@@ -125,15 +125,34 @@
          "class" : "feature5",
          "category": "Transcripts",
          "key" : "CanvasFeatures - Protein-coding genes",
-         "onClick": "http://www.ncbi.nlm.nih.gov/gquery/?term={name}",
          "trackType": "JBrowse/View/Track/CanvasFeatures",
+         "onClick" : {
+            "action" : "defaultDialog",
+            "label" : "<div style='font:normal 12px Univers,Helvetica,Arial,sans-serif'><div style='font-weight:bold'>Custom tooltip</div><div style='color:blue;'>Feature name: {name}<br />Feature start: {start}<br />Feature end: {end}</div></div>",
+            "title": "{type} {name}"
+         },
          "menuTemplate": [  {
+               "label" : "View details",
+             },
+             {
+               "label" : "Zoom this gene",
+             },
+             {
+               "label" : "Highlight this gene",
+             },
+             {
                "label" : "Popup with content snippet from string (feature {name})",
                "title": "{randomNumberTitle}",
                "iconClass" : "dijitIconDatabase",
                "action": "contentDialog",
                "content" : "<h2>{name}</h2>This is some test content about {type} {name}, which goes from {start} to {end} on the {strand} strand."
              }],
+         "fmtDetailValue_Name": "function(name,feature) { if(feature.get('type')=='gene') { return name + ' <a href=http://www.ncbi.nlm.nih.gov/gquery/?term='+name+'>[NCBI custom link]</a>'; } else { return name; } }",
+         "fmtDetailField_Name": "function(name,feature) { if(feature.get('type')=='gene') { return 'Gene Name'; } else { return name; } }",
+         "fmtDetailField_Load_id": "function(name,feature) { /* remove field from dialog box */ return null; }",
+         "fmtMetaValue_Name": "function(name) { return name+' [Track with custom callbacks for About track popup]'; }",
+         "fmtMetaField_Name": "function(name) { return 'Track Name'; }",
+         "fmtMetaDescription_Name": "function(name) { return '[Custom description]'; }"
       },
       {
          "feature" : [
@@ -144,7 +163,11 @@
          "class" : "cds",
          "phase": 1,
          "key" : "HTMLFeatures - mRNAs",
-         "onClick": { "label": "search at NCBI", "url": "http://www.ncbi.nlm.nih.gov/gquery/?term={name}" }
+         "onClick": {
+            "url": "http://www.ncbi.nlm.nih.gov/gquery/?term={name}",
+            "label": "Search for {name} at NCBI\nFeature start {start}\nFeature end {end}",
+            "title": "NCBI search box"
+         }
       },
       {
          "feature" : [

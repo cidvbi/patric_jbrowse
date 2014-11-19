@@ -54,6 +54,7 @@ echo -n "Formatting Volvox example data ...";
     cat docs/tutorial/data_files/volvox.vcf.conf >> sample_data/json/volvox/tracks.conf
     cat docs/tutorial/data_files/volvox_fromconfig.conf >> sample_data/json/volvox/tracks.conf
     cat docs/tutorial/data_files/volvox.gff3.conf >> sample_data/json/volvox/tracks.conf
+    cat docs/tutorial/data_files/volvox.gtf.conf >> sample_data/json/volvox/tracks.conf
     bin/add-json.pl '{ "dataset_id": "volvox", "include": [ "../../raw/volvox/functions.conf" ] }' sample_data/json/volvox/trackList.json
     bin/generate-names.pl --safeMode -v --out sample_data/json/volvox;
 
@@ -81,6 +82,7 @@ echo -n "Formatting Yeast example data ...";
     # format volvox
     rm -rf sample_data/json/yeast/;
     bin/prepare-refseqs.pl --fasta sample_data/raw/yeast_scaffolds/chr1.fa.gz --fasta sample_data/raw/yeast_scaffolds/chr2.fa.gzip  --out sample_data/json/yeast/;
+    gunzip -c sample_data/raw/yeast_scaffolds/chr1.fa.gz sample_data/raw/yeast_scaffolds/chr2.fa.gzip > sample_data/raw/yeast_chr1+2/yeast.fa;
     bin/biodb-to-json.pl --conf sample_data/raw/yeast.json --out sample_data/json/yeast/;
     bin/add-json.pl '{ "dataset_id": "yeast" }' sample_data/json/yeast/trackList.json
     bin/generate-names.pl --dir sample_data/json/yeast/;
@@ -114,18 +116,18 @@ echo -n "Building and installing legacy bam-to-json.pl support (superseded by di
         if( [ "x$SAMTOOLS" == "x" ] ); then
             set -x;
 
-            if [ ! -e samtools-master ]; then
+            if [ ! -e samtools-0.1.20 ]; then
                 if hash curl 2>/dev/null; then
-                    curl -L https://github.com/samtools/samtools/archive/master.zip -o samtools-master.zip;
+                    curl -L https://github.com/samtools/samtools/archive/0.1.20.zip -o samtools-0.1.20.zip;
                 else
-                    wget -O samtools-master.zip https://github.com/samtools/samtools/archive/master.zip;
+                    wget -O samtools-0.1.20.zip https://github.com/samtools/samtools/archive/0.1.20.zip;
                 fi
-                unzip -o samtools-master.zip;
-                rm samtools-master.zip;
-                perl -i -pe 's/^CFLAGS=\s*/CFLAGS=-fPIC / unless /\b-fPIC\b/' samtools-master/Makefile;
+                unzip -o samtools-0.1.20.zip;
+                rm samtools-0.1.20.zip;
+                perl -i -pe 's/^CFLAGS=\s*/CFLAGS=-fPIC / unless /\b-fPIC\b/' samtools-0.1.20/Makefile;
             fi;
-            make -C samtools-master -j3 lib;
-            export SAMTOOLS="$PWD/samtools-master";
+            make -C samtools-0.1.20 -j3 lib;
+            export SAMTOOLS="$PWD/samtools-0.1.20";
         fi
         echo "samtools in env at '$SAMTOOLS'";
         set +e;
