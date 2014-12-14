@@ -99,10 +99,10 @@ return declare( FeatureDescriptionMixin, {
 
         var _coreID = {}, _coreProduct = "", _coreLoc = {};
         
-        _coreID.na_feature_id = f.get("id") || f.get("na_feature_id") || "";
-        _coreID.locus_tag = f.get("locus_tag") || f.get("gene_id");
-        _coreID.refseq = (f.get("refseq") != undefined && f.get("refseq") != "null" && f.get("refseq") != "")? " | " + f.get("refseq") : "";
-        _coreID.gene =  (f.get("gene") != undefined && f.get("gene") != "null" && f.get("gene") != "")? " | " + f.get("gene") : "";
+        _coreID.feature_id = f.get("id") || "";
+        _coreID.locus_tag = (f.get("seed_id") != undefined && f.get("seed_id") != "")?f.get("seed_id") : "";
+        _coreID.refseq = (f.get("refseq_locus_tag") != undefined && f.get("refseq_locus_tag") != "")?f.get("refseq_locus_tag") : "";
+        _coreID.gene =  (f.get("gene") != undefined && f.get("gene") != "")?f.get("gene") : "";
         
         _coreProduct = (f.get("product") != undefined && f.get("product") != "")? f.get("product") : "";
         
@@ -113,10 +113,10 @@ return declare( FeatureDescriptionMixin, {
         
         var coreInfo = "";
         
-        if (_coreID.na_feature_id != "") {
-          coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + _coreID.na_feature_id + "\" target=_blank>" + _coreID.locus_tag + _coreID.refseq + _coreID.gene + "</a>";
+        if (_coreID.feature_id != "") {
+          coreInfo = "<a href=\"Feature?cType=feature&amp;cId=" + _coreID.feature_id + "\" target=_blank>" + _coreID.locus_tag + ((_coreID.locus_tag!="")?" | ":"") + _coreID.refseq + ((_coreID.refseq!="")?" | ":"") + _coreID.gene + "</a>";
         } else {
-          coreInfo = _coreID.locus_tag + _coreID.refseq + _coreID.gene;
+          coreInfo = _coreID.locus_tag + ((_coreID.locus_tag!="")?" | ":"") + _coreID.refseq + ((_coreID.refseq!="")?" | ":"") + _coreID.gene;
         }
 
         if (_coreProduct != "") {
@@ -130,11 +130,11 @@ return declare( FeatureDescriptionMixin, {
         if (track.name == "PATRICGenes" && _coreLoc.type == "CDS") {
           var atElement = domConstruct.create('div', { className: 'additional', innerHTML: '<h2 class="sectiontitle">For this feature, view:</h2>' }, container );
           var xtrnalHtml = "";
-          xtrnalHtml += "<a href=\"GenomeBrowser?cType=feature&cId=" + _coreID.na_feature_id + "&loc=" + (_coreLoc.start - 1000) + ".." + (_coreLoc.end + 1000) + "&tracks=DNA,PATRICGenes\" target=_blank>Genome Browser</a>";
-          xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + _coreID.na_feature_id + "&tracks=&regions=5&window=10000&loc=1..10000\" target=_blank>Compare Region Viewer</a>";
-          xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + _coreID.na_feature_id + "\" target=_blank>Pathways</a>";
-          xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + _coreID.na_feature_id + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
-          xtrnalHtml += "<br><a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + _coreID.na_feature_id + "\" target=_blank>Correlated genes</a>";
+          xtrnalHtml += "<a href=\"GenomeBrowser?cType=feature&cId=" + _coreID.feature_id + "&loc=" + (_coreLoc.start - 1000) + ".." + (_coreLoc.end + 1000) + "&tracks=DNA,PATRICGenes\" target=_blank>Genome Browser</a>";
+          xtrnalHtml += " &nbsp; <a href=\"CompareRegionViewer?cType=feature&cId=" + _coreID.feature_id + "&tracks=&regions=5&window=10000&loc=1..10000\" target=_blank>Compare Region Viewer</a>";
+          xtrnalHtml += " &nbsp; <a href=\"PathwayTable?cType=feature&cId=" + _coreID.feature_id + "\" target=_blank>Pathways</a>";
+          xtrnalHtml += " &nbsp; <a href=\"TranscriptomicsGeneExp?cType=feature&cId=" + _coreID.feature_id + "&sampleId=&colId=&log_ratio=&zscore=\" target=_blank>Transcriptomics Data</a>";
+          xtrnalHtml += "<br><a href=\"TranscriptomicsGeneCorrelated?cType=feature&cId=" + _coreID.feature_id + "\" target=_blank>Correlated genes</a>";
           domConstruct.create('div', {className:'detail value', innerHTML: xtrnalHtml}, atElement );
         }
     },
